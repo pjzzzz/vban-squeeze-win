@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.3 - 2026-11-01
+
+- Logo layout changed to three stacked lines: `PJZZZ'S` / `VBAN` /
+  `MAGIC for LYRION`, with the cyan waveform flanking the wordmark.
+  New file name `vban-magic.png` so browsers fetch it immediately.
+
 ## 1.7.2 - 2026-11-01
 
 - Rename the logo to `vban-logo.png` so browsers pick it up immediately
