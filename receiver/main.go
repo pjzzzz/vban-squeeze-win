@@ -357,6 +357,9 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 	var measureFrames int64
 	firstPacket := true
 
+	aw := newAsyncWriter(out)
+	defer aw.close()
+
 	var lastFrame uint32
 	haveFrame := false
 	announced := false
@@ -393,7 +396,8 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 				measureFrames = 0
 
 				if time.Since(lastWrite) >= silenceInterval {
-					written, werr := out.Write(silence)
+					written := len(silence)
+					werr := aw.write(silence)
 					if werr != nil {
 						if opts.device == "" && isClosedPipe(werr) {
 							log.debug("output closed by consumer: %v", werr)
@@ -515,15 +519,16 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 
 		outPCM := res.push(pcm, make([]byte, 0, len(pcm)+32))
 
-		written, err := out.Write(outPCM)
-		if err != nil {
-			if opts.device == "" && isClosedPipe(err) {
-				log.debug("output closed by consumer: %v", err)
+		written := len(outPCM)
+		werr := aw.write(outPCM)
+		if werr != nil {
+			if opts.device == "" && isClosedPipe(werr) {
+				log.debug("output closed by consumer: %v", werr)
 				st.consumerGone = true
 				st.duration = time.Since(st.start)
 				return st, nil
 			}
-			return st, fmt.Errorf("writing PCM output: %w", err)
+			return st, fmt.Errorf("writing PCM output: %w", werr)
 		}
 
 		st.packets++
@@ -572,7 +577,7 @@ func listen(port int, host string, iface net.IP, log *logger) (*net.UDPConn, err
 			conn.Close()
 			return nil, fmt.Errorf("cannot join multicast group %s: %w", host, err)
 		}
-		if err := conn.SetReadBuffer(1 << 20); err != nil {
+		if err := conn.SetReadBuffer(4 << 20); err != nil {
 			log.debug("could not enlarge UDP receive buffer: %v", err)
 		}
 		log.info("joined multicast group %s on UDP %d", host, port)
@@ -583,7 +588,7 @@ func listen(port int, host string, iface net.IP, log *logger) (*net.UDPConn, err
 	if err != nil {
 		return nil, err
 	}
-	if err := conn.SetReadBuffer(1 << 20); err != nil {
+	if err := conn.SetReadBuffer(4 << 20); err != nil {
 		log.debug("could not enlarge UDP receive buffer: %v", err)
 	}
 	return conn, nil

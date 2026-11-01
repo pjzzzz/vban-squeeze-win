@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.1 — 2026-11-01
+
+- Decouple reading from writing (async writer), so Lyrion backpressure no longer
+  distorts the measured sample rate; larger UDP receive buffer.
+
 ## 1.4.0 — 2026-11-01
 
 - Resample any VBAN sample rate to 44100 (linear interpolation), based on the
