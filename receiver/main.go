@@ -354,6 +354,7 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 
 	res := newResampler(1.0)
 	measureStart := time.Now()
+	lastPacket := time.Now()
 	var measureFrames int64
 	firstPacket := true
 
@@ -390,10 +391,12 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 		if err != nil {
 			var netErr net.Error
 			if errors.As(err, &netErr) && netErr.Timeout() {
-				// No data: reset the rate measurement window so a pause does
-				// not skew the measured sample rate.
-				measureStart = time.Now()
-				measureFrames = 0
+				// Only reset the rate measurement after a real gap; a short
+				// timeout can also be caused by output backpressure.
+				if time.Since(lastPacket) > time.Second {
+					measureStart = time.Now()
+					measureFrames = 0
+				}
 
 				if time.Since(lastWrite) >= silenceInterval {
 					written := len(silence)
@@ -421,6 +424,7 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 		}
 
 		st.datagrams++
+		lastPacket = time.Now()
 
 		if len(opts.allowIPs) > 0 && !sourceAllowed(addr.IP, opts.allowIPs) {
 			st.blocked++
@@ -505,7 +509,7 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 		// Measure the real frame rate; the VBAN header rate can be wrong (for
 		// example VoiceMeeter sends its engine rate but labels it 44100).
 		measureFrames += int64(pkt.SamplesPerFrame)
-		if elapsed := time.Since(measureStart); elapsed >= 500*time.Millisecond {
+		if elapsed := time.Since(measureStart); elapsed >= 250*time.Millisecond {
 			rate := float64(measureFrames) / elapsed.Seconds()
 			ratio := rate / 44100.0
 			if math.Abs(ratio-1) < 0.005 {
@@ -515,6 +519,10 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 			st.inRate = rate
 			measureFrames = 0
 			measureStart = time.Now()
+
+			if statsPath := statsFilePath(stream.Stream); statsPath != "" {
+				_ = os.WriteFile(statsPath, []byte(fmt.Sprintf("inputRate=%.1f\nratio=%.4f\n", rate, res.ratioValue())), 0644)
+			}
 		}
 
 		outPCM := res.push(pcm, make([]byte, 0, len(pcm)+32))
@@ -592,6 +600,13 @@ func listen(port int, host string, iface net.IP, log *logger) (*net.UDPConn, err
 		log.debug("could not enlarge UDP receive buffer: %v", err)
 	}
 	return conn, nil
+}
+
+func statsFilePath(stream string) string {
+	if st, err := os.Stat(`C:\ProgramData\Lyrion`); err == nil && st.IsDir() {
+		return filepath.Join(`C:\ProgramData\Lyrion`, "vban-stats-"+safeFileName(stream)+".txt")
+	}
+	return ""
 }
 
 func safeFileName(s string) string {

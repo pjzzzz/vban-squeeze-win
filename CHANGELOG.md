@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.2 — 2026-11-01
+
+- Keep the rate measurement window across short read timeouts (caused by output
+  backpressure) and use a 250 ms window, so the resample ratio converges even
+  when the player is slower than the sender. Adds a stats file for diagnosis.
+
 ## 1.4.1 — 2026-11-01
 
 - Decouple reading from writing (async writer), so Lyrion backpressure no longer
