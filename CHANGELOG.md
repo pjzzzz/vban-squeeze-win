@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.5 — 2026-11-01
+
+- Use the VBAN header rate as a stable resample ratio and only adjust with an
+  EMA when the measured rate deviates >5%; removes pitch wobble caused by
+  250 ms ratio updates.
+
 ## 1.4.4 — 2026-11-01
 
 - Retry binding the UDP port for up to 10 seconds, so a short overlap with a

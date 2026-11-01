@@ -92,6 +92,13 @@ sub new {
 			}
 		}
 	};
+	if ($@) {
+		$log->error("VBAN samplerate override failed: $@");
+	}
+	elsif (my $song = $args->{'song'}) {
+		my $track = eval { $song->track };
+		$log->debug("VBAN track samplerate after override: " . (($track && $track->samplerate) || 'undef'));
+	}
 
 	# Third argument = "local": skip socketwrapper's -w stream check. A VBAN
 	# source can be silent for a while (VoiceMeeter stream switched off); the

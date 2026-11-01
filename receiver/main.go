@@ -508,15 +508,23 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 
 		// Measure the real frame rate; the VBAN header rate can be wrong (for
 		// example VoiceMeeter sends its engine rate but labels it 44100).
+		// Use the VBAN header rate as the stable reference. Only correct it when
+		// the measured rate deviates clearly (some senders label the wrong
+		// rate); frequent small corrections would make the pitch wobble.
 		measureFrames += int64(pkt.SamplesPerFrame)
-		if elapsed := time.Since(measureStart); elapsed >= 250*time.Millisecond {
+		if elapsed := time.Since(measureStart); elapsed >= time.Second {
 			rate := float64(measureFrames) / elapsed.Seconds()
-			ratio := rate / 44100.0
-			if math.Abs(ratio-1) < 0.005 {
-				ratio = 1
-			}
-			res.setRatio(ratio)
 			st.inRate = rate
+			expected := res.ratioValue() * 44100.0
+			if expected > 0 && math.Abs(rate-expected)/expected > 0.05 {
+				ratio := rate / 44100.0
+				smoothed := res.ratioValue()*0.8 + ratio*0.2
+				if math.Abs(smoothed-1) < 0.005 {
+					smoothed = 1
+				}
+				res.setRatio(smoothed)
+				log.info("measured %.0f Hz differs from the VBAN header; adjusting resample ratio to %.4f", rate, res.ratioValue())
+			}
 			measureFrames = 0
 			measureStart = time.Now()
 
