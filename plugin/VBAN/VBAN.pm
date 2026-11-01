@@ -76,6 +76,23 @@ sub new {
 		return;
 	}
 
+	# The receiver always outputs 44100 Hz / 16-bit / stereo PCM. Make sure the
+	# player is told the same rate; otherwise it may play the stream too fast
+	# (48000) or too slow.
+	eval {
+		my $song = $args->{'song'};
+		if ($song) {
+			$song->samplerate(44100);
+			my $track = $song->track;
+			if ($track) {
+				$track->samplerate(44100);
+				$track->channels(2);
+				$track->samplesize(16);
+				$track->update;
+			}
+		}
+	};
+
 	# Third argument = "local": skip socketwrapper's -w stream check. A VBAN
 	# source can be silent for a while (VoiceMeeter stream switched off); the
 	# receiver must stay alive so playback resumes when the source returns.
@@ -123,6 +140,14 @@ sub _start_title_timer {
 		return if $title eq ${*$self}{'lastTitle'};
 
 		${*$self}{'lastTitle'} = $title;
+
+		my $artist = '';
+		my $album  = '';
+		if ($title =~ /^(.+?) - (.+)$/) {
+			($artist, $title) = ($1, $2);
+		}
+
+		Plugins::VBAN::Plugin::_write_meta($safe, $title, $artist, $album);
 
 		Slim::Music::Info::setTitle($url, $title);
 		Slim::Music::Info::setCurrentTitle($url, $title, $client);
@@ -223,14 +248,35 @@ sub getMetadataFor {
 	my $icon = eval { Plugins::VBAN::Plugin->_pluginDataFor('icon') }
 		|| 'plugins/VBAN/html/images/vban.png';
 
-	$log->debug("getMetadataFor $url ($icon)");
+	my ($stream) = $url =~ m{^vban://[^/]+/([^/?#]+)} ? $1 : 'Stream1';
+	(my $safe = $stream) =~ s/[^A-Za-z0-9._-]/_/g;
+	$safe = 'Stream1' unless length $safe;
 
-	return {
+	my ($title, $artist, $album) = ('', '', '');
+	my $file = 'C:\ProgramData\Lyrion\vban-meta-' . $safe . '.txt';
+	if (open my $fh, '<:encoding(UTF-8)', $file) {
+		local $/;
+		my $data = <$fh>;
+		close $fh;
+		if (defined $data) {
+			($title, $artist, $album) = split /\n/, $data, 3;
+		}
+	}
+
+	my %meta = (
 		bitrate => 'CD ',
 		icon    => $icon,
 		cover   => $icon,
 		type    => 'VBAN stream',
-	};
+	);
+
+	$meta{'title'}  = $title  if defined $title  && length $title;
+	$meta{'artist'} = $artist if defined $artist && length $artist;
+	$meta{'album'}  = $album  if defined $album  && length $album;
+
+	$log->debug("getMetadataFor $url ($icon)");
+
+	return \%meta;
 }
 
 1;

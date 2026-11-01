@@ -263,7 +263,7 @@ interfaces to receive the sender's packets. Mitigations:
 - Releases include a `SHA256SUMS.txt`; verify the zip before installing:
 
   ```powershell
-  Get-FileHash .\vban-1.3.2.zip -Algorithm SHA256
+  Get-FileHash .\vban-1.3.4.zip -Algorithm SHA256
   ```
 
 ## Building from source
@@ -280,10 +280,10 @@ go vet ./...
 go build -trimpath -ldflags "-s -w" `
     -o plugin/VBAN/Bin/MSWin32-x64-multi-thread/vban_url_receptor.exe ./receiver
 
-.\tools\make-zip.ps1 -Version 1.3.2
+.\tools\make-zip.ps1 -Version 1.3.4
 ```
 
-The plugin zip is written to `dist\vban-1.3.2.zip`. GitHub Actions builds the
+The plugin zip is written to `dist\vban-1.3.4.zip`. GitHub Actions builds the
 same artifact on every push and attaches it to tagged releases.
 
 ## Limitations

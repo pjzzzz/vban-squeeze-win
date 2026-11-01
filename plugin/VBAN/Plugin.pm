@@ -92,9 +92,25 @@ sub _cliSetTitle {
 	$title =~ s/[\x00-\x1f\x7f]//g;
 	$title = substr($title, 0, 512);
 
+	my $raw = $title;
+	my ($artist, $album) = ('', '');
+
+	if ($raw =~ /\|/) {
+		($artist, $title, $album) = split /\|/, $raw, 3;
+	}
+	elsif ($raw =~ /^(.+?) - (.+)$/) {
+		($artist, $title) = ($1, $2);
+	}
+
+	$title  = '' unless defined $title;
+	$artist = '' unless defined $artist;
+	$album  = '' unless defined $album;
+
 	my $stream = $prefs->get('stream') || 'Stream1';
 	(my $safe = $stream) =~ s/[^A-Za-z0-9._-]/_/g;
 	$safe = 'Stream1' unless length $safe;
+
+	_write_meta($safe, $title, $artist, $album);
 
 	my $file = 'C:\ProgramData\Lyrion\vban-title-' . $safe . '.txt';
 	my $tmp  = $file . '.tmp';
@@ -115,6 +131,22 @@ sub _cliSetTitle {
 	}
 
 	$request->setStatusDone();
+}
+
+sub _write_meta {
+	my ($safe, $title, $artist, $album) = @_;
+
+	my $file = 'C:\ProgramData\Lyrion\vban-meta-' . $safe . '.txt';
+	my $tmp  = $file . '.tmp';
+
+	if (open my $fh, '>:encoding(UTF-8)', $tmp) {
+		print $fh join("\n", $title, $artist, $album);
+		close $fh;
+		rename($tmp, $file) or $log->error("vban: cannot rename $tmp to $file: $!");
+	}
+	else {
+		$log->error("vban: cannot write metadata file $tmp: $!");
+	}
 }
 
 # Radio menu entry: one item for the configured VBAN stream.

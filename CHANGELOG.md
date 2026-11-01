@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.4 — 2026-11-01
+
+- Force the stream rate to 44100 Hz (the receiver's output rate) so a player
+  cannot play the PCM stream too fast or too slow.
+
+## 1.3.3 — 2026-11-01
+
+- Send artist and album with the title (MM5 addon); getMetadataFor returns
+  title/artist/album, so the web UI track-info dialog shows them.
+
 ## 1.3.2 — 2026-11-01
 
 - Update the playlist item title as well (setTitle), so the web UI and Jive
