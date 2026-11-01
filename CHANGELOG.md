@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.4 - 2026-11-01
+
+- Logo: first line is now `PJZZZZ'S` (four Z, matching the GitHub handle).
+  New file name `vban-magic-2.png` so browsers fetch it immediately.
+
 ## 1.7.3 - 2026-11-01
 
 - Logo layout changed to three stacked lines: `PJZZZ'S` / `VBAN` /
