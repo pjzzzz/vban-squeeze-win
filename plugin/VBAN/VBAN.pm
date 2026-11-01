@@ -21,6 +21,10 @@ use Slim::Utils::Log;
 use Slim::Utils::Misc;
 use Slim::Utils::Prefs;
 use Slim::Utils::Strings qw(string);
+use Slim::Utils::Timers;
+
+use File::Spec;
+use Time::HiRes qw(time);
 
 Slim::Player::ProtocolHandlers->registerHandler('vban', __PACKAGE__);
 
@@ -79,7 +83,67 @@ sub new {
 
 	${*$self}{'contentType'} = $transcoder->{'streamformat'};
 
+	$self->_start_title_timer($client, $url);
+
 	return $self;
+}
+
+# VBAN TEXT packets are turned into a title file by the receiver. Poll it and
+# publish the title to Lyrion so the player shows the current track.
+sub _start_title_timer {
+	my ($self, $client, $url) = @_;
+
+	my $stream = $url =~ m{^vban://[^/]+/([^/?#]+)} ? $1 : 'Stream1';
+	(my $safe = $stream) =~ s/[^A-Za-z0-9._-]/_/g;
+	$safe = 'Stream1' unless length $safe;
+
+	if (my $old = ${*$self}{'titleTimer'}) {
+		Slim::Utils::Timers::killSpecific($old);
+		delete ${*$self}{'titleTimer'};
+	}
+
+	# Per-stream file in the Lyrion data directory; the receiver uses the same
+	# name, so %TEMP% differences between processes do not matter.
+	my $file = 'C:\ProgramData\Lyrion\vban-title-' . $safe . '.txt';
+
+	${*$self}{'titleFile'}  = $file;
+	${*$self}{'lastTitle'}  = '';
+
+	my $timer;
+	$timer = sub {
+		${*$self}{'titleTimer'} = Slim::Utils::Timers::setTimer(
+			$client, time() + 2, $timer
+		);
+
+		return unless -f $file;
+
+		open my $fh, '<:encoding(UTF-8)', $file or return;
+		local $/;
+		my $title = <$fh>;
+		close $fh;
+
+		return unless defined $title;
+		$title =~ s/\s+$//;
+		return unless length $title;
+		return if $title eq ${*$self}{'lastTitle'};
+
+		${*$self}{'lastTitle'} = $title;
+
+		Slim::Music::Info::setCurrentTitle($url, $title, $client);
+	};
+
+	${*$self}{'titleTimer'} = Slim::Utils::Timers::setTimer($client, time() + 2, $timer);
+}
+
+sub close {
+	my $self = shift;
+
+	if (my $timer = ${*$self}{'titleTimer'}) {
+		Slim::Utils::Timers::killSpecific($timer);
+		delete ${*$self}{'titleTimer'};
+	}
+
+	return $self->SUPER::close(@_);
 }
 
 sub canDoAction {

@@ -22,6 +22,11 @@ use Slim::Utils::OSDetect;
 use Slim::Utils::Prefs;
 use Slim::Utils::Strings qw(string);
 
+use Slim::Control::Request;
+use Slim::Music::Info;
+use Slim::Player::Client;
+use Slim::Player::Playlist;
+
 use Plugins::VBAN::Settings;
 use Plugins::VBAN::VBAN;
 
@@ -51,6 +56,10 @@ sub initPlugin {
 
 	Plugins::VBAN::Settings->new;
 
+	# CLI: ["vban","title","<text>"] lets a sender (for example the MediaMonkey
+	# addon) push the current track without a separate VBAN TEXT sender.
+	Slim::Control::Request::addDispatch(['vban', 'title', '_'], [0, 0, 1, \&_cliSetTitle]);
+
 	$class->SUPER::initPlugin(
 		feed   => \&handleFeed,
 		tag    => 'vban',
@@ -70,9 +79,45 @@ sub getDisplayName {
 	return ('PLUGIN_VBAN');
 }
 
+# CLI: ["vban","title","<text>"] - set the now-playing title for VBAN streams.
+sub _cliSetTitle {
+	my $request = shift;
+	my $title   = $request->getParam('_');
+
+	unless (defined $title && length $title) {
+		$request->setStatusBadParams();
+		return;
+	}
+
+	$title =~ s/[\x00-\x1f\x7f]//g;
+	$title = substr($title, 0, 512);
+
+	my $stream = $prefs->get('stream') || 'Stream1';
+	(my $safe = $stream) =~ s/[^A-Za-z0-9._-]/_/g;
+	$safe = 'Stream1' unless length $safe;
+
+	my $file = 'C:\ProgramData\Lyrion\vban-title-' . $safe . '.txt';
+	my $tmp  = $file . '.tmp';
+	if (open my $fh, '>:encoding(UTF-8)', $tmp) {
+		print $fh $title;
+		close $fh;
+		rename($tmp, $file) or $log->error("vban: cannot rename $tmp to $file: $!");
+	}
+	else {
+		$log->error("vban: cannot write title file $tmp: $!");
+	}
+
+	for my $client (Slim::Player::Client::clients()) {
+		my $url = Slim::Player::Playlist::url($client) || '';
+		next unless $url =~ m{^vban://[^/]+/\Q$stream\E$}i;
+		Slim::Music::Info::setCurrentTitle($url, $title, $client);
+	}
+
+	$request->setStatusDone();
+}
+
 # Radio menu entry: one item for the configured VBAN stream.
-sub handleFeed {
-	my ($client, $cb, $args, $params) = @_;
+sub handleFeed {	my ($client, $cb, $args, $params) = @_;
 
 	my $host   = $prefs->get('host');
 	my $port   = $prefs->get('port') || 6980;

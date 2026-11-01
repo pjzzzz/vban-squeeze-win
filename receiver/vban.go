@@ -17,6 +17,7 @@ const (
 
 	protocolMask  = 0xE0
 	protocolAudio = 0x00
+	protocolText  = 0x40
 
 	codecMask = 0xF0
 	codecPCM  = 0x00
@@ -140,6 +141,32 @@ func parsePacket(b []byte) (packet, error) {
 	}
 
 	return p, nil
+}
+
+// parseTextPacket decodes a VBAN TEXT packet (sub-protocol 0x40). The payload
+// is the text, optionally NUL terminated.
+func parseTextPacket(b []byte) (stream, text string, ok bool) {
+	if len(b) <= vbanHeaderSize || string(b[0:4]) != "VBAN" {
+		return "", "", false
+	}
+	if b[4]&protocolMask != protocolText {
+		return "", "", false
+	}
+
+	name := b[8:24]
+	if i := bytes.IndexByte(name, 0); i >= 0 {
+		name = name[:i]
+	}
+
+	payload := b[vbanHeaderSize:]
+	if i := bytes.IndexByte(payload, 0); i >= 0 {
+		payload = payload[:i]
+	}
+	if len(payload) > 512 {
+		payload = payload[:512]
+	}
+
+	return string(name), string(payload), true
 }
 
 // buildPacket is used by tests and tools to create a VBAN audio datagram.

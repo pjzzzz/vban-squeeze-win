@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -42,6 +43,7 @@ Options:
   -d, --device=FILE      write PCM to FILE instead of stdout (debug, -o is an alias)
   -t, --seconds=N        stop after N seconds (testing)
       --stats            print a summary on stderr when stopping
+      --title-file=FILE  write VBAN TEXT titles to FILE (default: temp/vban-<stream>.title)
   -l, --loglevel=0..4    log level: 0 fatal, 1 error, 2 info, 3 debug (default 2)
   -v, --version          print version
   -h, --help             print this help
@@ -70,6 +72,7 @@ type options struct {
 	seconds    float64
 	stats      bool
 	logLevel   int
+	titleFile  string
 }
 
 func parseArgs(args []string) (options, error) {
@@ -176,6 +179,12 @@ func parseArgs(args []string) (options, error) {
 			o.seconds = f
 		case "--stats":
 			o.stats = true
+		case "--title-file":
+			v, err := value(&i, name, inline, hasInline)
+			if err != nil {
+				return o, err
+			}
+			o.titleFile = v
 		case "-l", "--loglevel":
 			v, err := value(&i, name, inline, hasInline)
 			if err != nil {
@@ -294,6 +303,7 @@ type stats struct {
 	bytesIn      int64
 	bytesOut     int64
 	silence      int64
+	texts        int
 	frames       int64
 	peak         int
 	sampleRate   int
@@ -328,6 +338,17 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 	const silenceInterval = 100 * time.Millisecond
 	silence := make([]byte, 44100*4*int(silenceInterval/time.Millisecond)/1000)
 	lastWrite := time.Now()
+
+	titlePath := opts.titleFile
+	if titlePath == "" {
+		name := "vban-title-" + safeFileName(stream.Stream) + ".txt"
+		if st, err := os.Stat(`C:\ProgramData\Lyrion`); err == nil && st.IsDir() {
+			titlePath = filepath.Join(`C:\ProgramData\Lyrion`, name)
+		} else {
+			titlePath = filepath.Join(os.TempDir(), name)
+		}
+	}
+	lastTitle := ""
 
 	var lastFrame uint32
 	haveFrame := false
@@ -387,6 +408,19 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 
 		if len(opts.allowIPs) > 0 && !sourceAllowed(addr.IP, opts.allowIPs) {
 			st.blocked++
+			continue
+		}
+
+		if name, text, ok := parseTextPacket(buf[:n]); ok {
+			if name == stream.Stream && text != "" && text != lastTitle {
+				if err := writeTitle(titlePath, text); err != nil {
+					log.debug("cannot write title file %s: %v", titlePath, err)
+				} else {
+					lastTitle = text
+					st.texts++
+					log.info("title: %s", text)
+				}
+			}
 			continue
 		}
 
@@ -520,6 +554,30 @@ func listen(port int, host string, iface net.IP, log *logger) (*net.UDPConn, err
 	return conn, nil
 }
 
+func safeFileName(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_', r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	if b.Len() == 0 {
+		return "Stream1"
+	}
+	return b.String()
+}
+
+func writeTitle(path, text string) error {
+	tmp := fmt.Sprintf("%s.%d.tmp", path, os.Getpid())
+	if err := os.WriteFile(tmp, []byte(text), 0644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
 func sourceAllowed(ip net.IP, allowed []net.IP) bool {
 	for _, candidate := range allowed {
 		if candidate.Equal(ip) {
@@ -543,6 +601,7 @@ func printStats(w io.Writer, st stats) {
 	fmt.Fprintf(w, "packets     : %d\n", st.packets)
 	fmt.Fprintf(w, "rejected    : %d\n", st.rejected)
 	fmt.Fprintf(w, "other stream: %d\n", st.otherStream)
+	fmt.Fprintf(w, "texts       : %d\n", st.texts)
 	fmt.Fprintf(w, "blocked     : %d\n", st.blocked)
 	fmt.Fprintf(w, "gaps        : %d\n", st.gaps)
 	fmt.Fprintf(w, "payload in  : %d bytes\n", st.bytesIn)

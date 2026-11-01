@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 — 2026-11-01
+
+- Track info: the receiver parses VBAN TEXT packets (sub-protocol 0x40) and
+  writes the title to `%TEMP%\vban-<stream>.title`; the plugin polls it and
+  publishes the title to Lyrion (`setCurrentTitle`), so the player shows the
+  current track.
+- `tools/smtc-sendtext.ps1`: reads the Windows now-playing info (SMTC) and
+  sends it as VBAN TEXT. Works with MediaMonkey, Spotify, browsers, etc.
 ## 1.2.2 — 2026-11-01
 
 - The receiver keeps the PCM stream continuous: when no VBAN packets arrive it

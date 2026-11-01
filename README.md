@@ -176,6 +176,37 @@ Glossary: *multicast group* — one address that many receivers listen to;
 *IGMP snooping* — a switch feature that forwards multicast only to interested
 ports; *sync master* — the player in a sync group that Lyrion streams to.
 
+## Track info (now playing)
+
+VBAN carries audio and text in separate packets. The receiver understands the
+VBAN TEXT sub-protocol and the plugin shows the title on the player.
+
+Run `tools/smtc-sendtext.ps1` on the machine that plays the audio (the VBAN
+sender). It reads the Windows "now playing" information, which works with
+MediaMonkey, Spotify, browsers and other players that report to the System
+Media Transport Controls:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\smtc-sendtext.ps1 -Target 192.168.178.30 -Stream Stream1
+```
+
+Start it automatically at logon (hidden):
+
+```powershell
+schtasks /create /tn "VBAN now playing" /tr "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\path\to\smtc-sendtext.ps1 -Target 192.168.178.30 -Stream Stream1" /sc onlogon
+```
+
+Notes:
+
+- Use **Windows PowerShell 5.1** (`powershell.exe`), not `pwsh`: the WinRT media
+  API is not available in PowerShell 7.
+- **MediaMonkey users** do not need this script: the MMSync addon can send the
+  title directly through Lyrion's CLI (`vban title <text>`).
+- The stream name must match the audio stream (`Stream1`).
+- The receiver writes `C:\ProgramData\Lyrion\vban-title-<stream>.txt`; the
+  plugin polls it every 2 seconds and updates the player. Without the sender the
+  player keeps showing the stream name.
+
 ## Troubleshooting
 
 | Symptom | Cause / fix |
@@ -232,7 +263,7 @@ interfaces to receive the sender's packets. Mitigations:
 - Releases include a `SHA256SUMS.txt`; verify the zip before installing:
 
   ```powershell
-  Get-FileHash .\vban-1.2.2.zip -Algorithm SHA256
+  Get-FileHash .\vban-1.3.0.zip -Algorithm SHA256
   ```
 
 ## Building from source
@@ -249,10 +280,10 @@ go vet ./...
 go build -trimpath -ldflags "-s -w" `
     -o plugin/VBAN/Bin/MSWin32-x64-multi-thread/vban_url_receptor.exe ./receiver
 
-.\tools\make-zip.ps1 -Version 1.2.2
+.\tools\make-zip.ps1 -Version 1.3.0
 ```
 
-The plugin zip is written to `dist\vban-1.2.2.zip`. GitHub Actions builds the
+The plugin zip is written to `dist\vban-1.3.0.zip`. GitHub Actions builds the
 same artifact on every push and attaches it to tagged releases.
 
 ## Limitations
