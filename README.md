@@ -28,12 +28,14 @@ VoiceMeeter (Windows)                 Lyrion Music Server (Windows)
 |-----------|-------------|
 | Lyrion Music Server | Windows, 7.9 or newer (tested with 9.1.1) |
 | VBAN sender | VoiceMeeter Banana / Potato / VoiceMeeter 8 |
-| Stream format | **44100 Hz**, **16-bit PCM**, **2 channels** |
+| Stream format | 16-bit PCM, 2 channels; any sample rate (resampled to 44100) |
 | Player | Any Squeezebox or Squeezelite player (raw PCM support) |
 
 Lyrion's `pcm` stream format is fixed at 44100 Hz / 16-bit / stereo. The
-receiver converts 8/16/24/32-bit and float samples to 16-bit stereo, but it
-cannot change the sample rate. Set the VBAN outgoing stream to **44100 Hz**.
+receiver converts 8/16/24/32-bit and float samples to 16-bit stereo and
+resamples any input rate to 44100 (for example when VoiceMeeter's engine runs
+at 48000 Hz). Linear interpolation is used; 44100 Hz input passes through
+unchanged.
 
 ## Quick start
 
@@ -289,8 +291,8 @@ same artifact on every push and attaches it to tagged releases.
 ## Limitations
 
 - **Windows only.** The Linux plugin from upstream still works on Linux.
-- **44100 Hz only** (Lyrion's `pcm` format). Other sample rates are passed
-  through unchanged and play at the wrong pitch; the receiver logs an error.
+- **Sample rate**: Lyrion's `pcm` format is 44100 Hz. Other input rates are
+  resampled to 44100 (linear interpolation).
 - **Independent players need multicast or separate streams.** Synced players
   share one stream; with unicast, two pipelines cannot both bind UDP 6980.
 - The receiver is a live pass-through: it does not buffer ahead, so a very

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"os/signal"
@@ -310,6 +311,7 @@ type stats struct {
 	bitFmt       int
 	bitLabel     string
 	channels     int
+	inRate       float64
 	consumerGone bool
 }
 
@@ -350,6 +352,11 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 	}
 	lastTitle := ""
 
+	res := newResampler(1.0)
+	measureStart := time.Now()
+	var measureFrames int64
+	firstPacket := true
+
 	var lastFrame uint32
 	haveFrame := false
 	announced := false
@@ -380,6 +387,11 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 		if err != nil {
 			var netErr net.Error
 			if errors.As(err, &netErr) && netErr.Timeout() {
+				// No data: reset the rate measurement window so a pause does
+				// not skew the measured sample rate.
+				measureStart = time.Now()
+				measureFrames = 0
+
 				if time.Since(lastWrite) >= silenceInterval {
 					written, werr := out.Write(silence)
 					if werr != nil {
@@ -448,10 +460,16 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 				pkt.StreamName, pkt.SampleRate, pkt.bitDepthLabel(), pkt.Channels, addr)
 		}
 
+		if firstPacket {
+			firstPacket = false
+			if pkt.SampleRate != 44100 {
+				res.setRatio(float64(pkt.SampleRate) / 44100.0)
+			}
+		}
+
 		if pkt.SampleRate != 44100 && !warnedRate {
 			warnedRate = true
-			log.error("stream sample rate is %d Hz, but Lyrion expects 44100 Hz; "+
-				"set the VBAN outgoing stream to 44100 Hz or playback will be pitch shifted", pkt.SampleRate)
+			log.info("stream sample rate is %d Hz; resampling to 44100 Hz for Lyrion", pkt.SampleRate)
 		}
 
 		if pkt.Channels > 2 && !warnedChannels {
@@ -480,7 +498,24 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 			st.peak = peak
 		}
 
-		written, err := out.Write(pcm)
+		// Measure the real frame rate; the VBAN header rate can be wrong (for
+		// example VoiceMeeter sends its engine rate but labels it 44100).
+		measureFrames += int64(pkt.SamplesPerFrame)
+		if elapsed := time.Since(measureStart); elapsed >= 500*time.Millisecond {
+			rate := float64(measureFrames) / elapsed.Seconds()
+			ratio := rate / 44100.0
+			if math.Abs(ratio-1) < 0.005 {
+				ratio = 1
+			}
+			res.setRatio(ratio)
+			st.inRate = rate
+			measureFrames = 0
+			measureStart = time.Now()
+		}
+
+		outPCM := res.push(pcm, make([]byte, 0, len(pcm)+32))
+
+		written, err := out.Write(outPCM)
 		if err != nil {
 			if opts.device == "" && isClosedPipe(err) {
 				log.debug("output closed by consumer: %v", err)
@@ -611,6 +646,9 @@ func printStats(w io.Writer, st stats) {
 	fmt.Fprintf(w, "peak        : %d (%.1f%%)\n", st.peak, peakPercent)
 	if st.sampleRate != 0 {
 		fmt.Fprintf(w, "format      : %d Hz / %s / %d ch\n", st.sampleRate, st.bitLabel, st.channels)
+	}
+	if st.inRate > 0 {
+		fmt.Fprintf(w, "input rate  : %.1f Hz (resampled to 44100)\n", st.inRate)
 	}
 	if st.consumerGone {
 		fmt.Fprintln(w, "note        : output closed by consumer")

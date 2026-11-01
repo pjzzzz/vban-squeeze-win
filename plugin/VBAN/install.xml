@@ -4,7 +4,7 @@
 	<name>PLUGIN_VBAN</name>
 	<module>Plugins::VBAN::Plugin</module>
 	<playerMenu>RADIO</playerMenu>
-	<version>1.3.4</version>
+	<version>1.4.0</version>
 	<description>PLUGIN_VBAN_DESC</description>
 	<creator>pjzzzz (Windows port), original by Markus Buschhoff</creator>
 	<defaultState>enabled</defaultState>

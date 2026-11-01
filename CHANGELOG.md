@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 — 2026-11-01
+
+- Resample any VBAN sample rate to 44100 (linear interpolation), based on the
+  measured frame rate. Fixes fast/slow playback when VoiceMeeter's engine runs
+  at 48000 Hz (the VBAN header rate cannot be trusted).
+
 ## 1.3.4 — 2026-11-01
 
 - Force the stream rate to 44100 Hz (the receiver's output rate) so a player
