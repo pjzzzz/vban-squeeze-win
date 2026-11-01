@@ -109,12 +109,7 @@ sub _start_title_timer {
 	${*$self}{'titleFile'}  = $file;
 	${*$self}{'lastTitle'}  = '';
 
-	my $timer;
-	$timer = sub {
-		${*$self}{'titleTimer'} = Slim::Utils::Timers::setTimer(
-			$client, time() + 2, $timer
-		);
-
+	my $apply = sub {
 		return unless -f $file;
 
 		open my $fh, '<:encoding(UTF-8)', $file or return;
@@ -131,6 +126,19 @@ sub _start_title_timer {
 
 		Slim::Music::Info::setCurrentTitle($url, $title, $client);
 	};
+
+	my $timer;
+	$timer = sub {
+		${*$self}{'titleTimer'} = Slim::Utils::Timers::setTimer(
+			$client, time() + 2, $timer
+		);
+
+		$apply->();
+	};
+
+	# Apply a known title right away, so the player does not briefly show the
+	# stream name when a new pipeline starts.
+	$apply->();
 
 	${*$self}{'titleTimer'} = Slim::Utils::Timers::setTimer($client, time() + 2, $timer);
 }

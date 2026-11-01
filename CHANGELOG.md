@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1 — 2026-11-01
+
+- Apply a known title immediately when a pipeline starts, so the player does not
+  briefly show the stream name.
+
 ## 1.3.0 — 2026-11-01
 
 - Track info: the receiver parses VBAN TEXT packets (sub-protocol 0x40) and
