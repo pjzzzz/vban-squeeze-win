@@ -38,6 +38,7 @@ Options:
   -q, --quality=0..4     receive quality hint (default 1)
   -c, --channels=LIST    channel list, e.g. 1,2 (default: automatic)
       --allow=IP[,IP]    only accept packets from these source addresses
+      --interface=IP     local IPv4 address to join a multicast group on
   -d, --device=FILE      write PCM to FILE instead of stdout (debug, -o is an alias)
   -t, --seconds=N        stop after N seconds (testing)
       --stats            print a summary on stderr when stopping
@@ -64,6 +65,7 @@ type options struct {
 	channelMap []int
 	allow      []string
 	allowIPs   []net.IP
+	iface      net.IP
 	device     string
 	seconds    float64
 	stats      bool
@@ -146,6 +148,16 @@ func parseArgs(args []string) (options, error) {
 				return o, err
 			}
 			o.allow = append(o.allow, strings.Split(v, ",")...)
+		case "--interface":
+			v, err := value(&i, name, inline, hasInline)
+			if err != nil {
+				return o, err
+			}
+			ip := net.ParseIP(strings.TrimSpace(v))
+			if ip == nil || ip.To4() == nil {
+				return o, fmt.Errorf("invalid IPv4 interface address %q", v)
+			}
+			o.iface = ip.To4()
 		case "-d", "--device", "-o", "--output":
 			v, err := value(&i, name, inline, hasInline)
 			if err != nil {
@@ -293,7 +305,7 @@ type stats struct {
 func receive(ctx context.Context, stream streamURL, opts options, out io.Writer, log *logger) (stats, error) {
 	st := stats{start: time.Now()}
 
-	conn, err := listen(stream.Port, log)
+	conn, err := listen(stream.Port, stream.Host, opts.iface, log)
 	if err != nil {
 		return st, fmt.Errorf("cannot listen on UDP port %d: %w", stream.Port, err)
 	}
@@ -432,7 +444,48 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 	return st, nil
 }
 
-func listen(port int, log *logger) (*net.UDPConn, error) {
+func parseMulticastHost(host string) (net.IP, bool, error) {
+	ip := net.ParseIP(host)
+	if ip == nil || !ip.IsMulticast() {
+		return nil, false, nil
+	}
+	if ip.To4() == nil {
+		return nil, true, fmt.Errorf("IPv6 multicast is not supported: %s", host)
+	}
+	return ip.To4(), true, nil
+}
+
+func listen(port int, host string, iface net.IP, log *logger) (*net.UDPConn, error) {
+	group, multicast, err := parseMulticastHost(host)
+	if err != nil {
+		return nil, err
+	}
+
+	if multicast {
+		// Multicast: bind 0.0.0.0 with SO_REUSEADDR and join the group. Several
+		// receivers on this host can then bind the same port and each receives
+		// its own copy of every datagram.
+		lc := net.ListenConfig{Control: reuseAddrControl}
+		pc, err := lc.ListenPacket(context.Background(), "udp4", net.JoinHostPort("0.0.0.0", strconv.Itoa(port)))
+		if err != nil {
+			return nil, err
+		}
+		conn, ok := pc.(*net.UDPConn)
+		if !ok {
+			pc.Close()
+			return nil, errors.New("unexpected packet connection type")
+		}
+		if err := joinMulticastGroup(conn, group, iface); err != nil {
+			conn.Close()
+			return nil, fmt.Errorf("cannot join multicast group %s: %w", host, err)
+		}
+		if err := conn.SetReadBuffer(1 << 20); err != nil {
+			log.debug("could not enlarge UDP receive buffer: %v", err)
+		}
+		log.info("joined multicast group %s on UDP %d", host, port)
+		return conn, nil
+	}
+
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero, Port: port})
 	if err != nil {
 		return nil, err

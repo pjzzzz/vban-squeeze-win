@@ -126,11 +126,55 @@ In Lyrion, use **Radio → Play from URL** (or add it as a favorite):
 vban://<sender-ip>/<streamname>
 vban://192.168.178.79/Stream1
 vban://192.168.178.79:6980/Stream1
+vban://239.255.42.42/Stream1        (multicast group, see below)
 ```
 
-`host` and `port` are informational: the receiver listens on all interfaces and
-selects packets by stream name, exactly like the Linux `vban_receptor`.
+`host` is the sender's unicast address for normal streams. When it is a
+multicast group (`224.0.0.0/4`), the receiver joins that group instead; see
+[Multiple players and multicast](#multiple-players-and-multicast). `port` is
+the UDP port to listen on and the stream name must match the VBAN stream.
 Defaults are `127.0.0.1`, port `6980` and stream `Stream1`.
+
+## Multiple players and multicast
+
+Every player that plays the URL gets its own pipeline and therefore its own
+`vban_url_receptor.exe`, which binds UDP 6980 on the Lyrion host.
+
+- **Synced players** share one stream: Lyrion streams to the sync master, so a
+  sync group needs only one receiver and works with plain unicast.
+- **Independent players** cannot share a unicast stream (one socket per port).
+  Two options:
+  - Send a separate VoiceMeeter outgoing stream per player on its own port,
+    for example `Stream1` on 6980 and `Stream2` on 6981.
+  - Use **multicast**: point VoiceMeeter at a multicast group such as
+    `239.255.42.42` and play `vban://239.255.42.42/Stream1`. The receiver joins
+    the group, and every pipeline on the host receives its own copy of the
+    stream.
+
+Multicast notes:
+
+- The switch/router must pass multicast (IGMP snooping/querier on managed
+  switches; simple unmanaged switches usually flood it to all ports).
+- Allow inbound UDP 6980 in Windows Firewall (the same rule as above); some
+  networks also need IGMP allowed.
+- The receiver joins the group on the default multicast interface. On a
+  multi-homed host, make sure the LAN interface carries the default route.
+- VoiceMeeter must accept the multicast address as the target. If it does not,
+  use the separate-stream/port option.
+
+Quick start (multicast):
+
+1. Pick a group and port, for example `239.255.42.42` on `6980`.
+2. In VoiceMeeter set the outgoing stream's IP to `239.255.42.42` (44100 Hz,
+   2 channels, PCM 16 bits, stream name `Stream1`).
+3. Play `vban://239.255.42.42/Stream1` on two players.
+4. If nothing arrives, check IGMP on the switch and the firewall rule. On a
+   multi-homed Lyrion host, add `--interface=<lan-ip>` to the receiver command
+   so it joins the group on the right NIC.
+
+Glossary: *multicast group* — one address that many receivers listen to;
+*IGMP snooping* — a switch feature that forwards multicast only to interested
+ports; *sync master* — the player in a sync group that Lyrion streams to.
 
 ## Troubleshooting
 
@@ -142,7 +186,7 @@ Defaults are `127.0.0.1`, port `6980` and stream `Stream1`.
 | Plugin does not appear in the plugin list | `install.xml` must be at `C:\ProgramData\Lyrion\Cache\InstalledPlugins\Plugins\VBAN\install.xml`; restart Lyrion; check **Settings → Information** for plugin load errors. |
 | Audio plays too fast/slow or at the wrong pitch | The VBAN stream is not 44100 Hz. Set it to 44100 in VoiceMeeter. The receiver logs an error on stderr. |
 | Clicks or dropouts | Use a wired network, keep the VBAN stream on a single player, and check for packet loss (`gaps` in the receiver stats). |
-| Second player stays silent | Two players on the same stream share UDP port 6980; Windows delivers each datagram to only one socket. Use one player per stream, or send a second VBAN stream on another port: `vban://<sender-ip>:6981/Stream2`. |
+| Second player stays silent | Unicast: two pipelines cannot share UDP 6980. Use multicast (`vban://239.255.42.42/Stream1`) or a second stream on another port (`vban://<sender-ip>:6981/Stream2`). Synced players share one stream and are not affected. |
 | `vban_url_receptor.exe` blocked by SmartScreen | Run `Unblock-File` on the binary (see installation), or right-click the file → **Properties** → **Unblock**. |
 
 Lyrion writes transcoder output and the receiver's stderr to
@@ -179,13 +223,15 @@ interfaces to receive the sender's packets. Mitigations:
 
 - Keep the firewall rule scoped to your LAN and, ideally, to the sender's IP.
 - Optionally start the receiver with `--allow=<sender-ip>`.
+- With multicast, any local process that joins the group can receive the
+  stream; use `--allow` and keep the LAN trusted.
 - The plugin validates the `vban://` URL before it is placed in a transcoder
   command line and refuses host or stream names containing shell
   metacharacters.
 - Releases include a `SHA256SUMS.txt`; verify the zip before installing:
 
   ```powershell
-  Get-FileHash .\vban-1.0.1.zip -Algorithm SHA256
+  Get-FileHash .\vban-1.1.0.zip -Algorithm SHA256
   ```
 
 ## Building from source
@@ -202,10 +248,10 @@ go vet ./...
 go build -trimpath -ldflags "-s -w" `
     -o plugin/VBAN/Bin/MSWin32-x64-multi-thread/vban_url_receptor.exe ./receiver
 
-.\tools\make-zip.ps1 -Version 1.0.1
+.\tools\make-zip.ps1 -Version 1.1.0
 ```
 
-The plugin zip is written to `dist\vban-1.0.1.zip`. GitHub Actions builds the
+The plugin zip is written to `dist\vban-1.1.0.zip`. GitHub Actions builds the
 same artifact on every push and attaches it to tagged releases.
 
 ## Limitations
@@ -213,8 +259,8 @@ same artifact on every push and attaches it to tagged releases.
 - **Windows only.** The Linux plugin from upstream still works on Linux.
 - **44100 Hz only** (Lyrion's `pcm` format). Other sample rates are passed
   through unchanged and play at the wrong pitch; the receiver logs an error.
-- **One player per stream.** Two pipelines cannot both receive the same UDP
-  port; see the troubleshooting table.
+- **Independent players need multicast or separate streams.** Synced players
+  share one stream; with unicast, two pipelines cannot both bind UDP 6980.
 - The receiver is a live pass-through: it does not buffer ahead, so a very
   unstable network can cause clicks.
 

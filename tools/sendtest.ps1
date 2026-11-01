@@ -66,6 +66,17 @@ $header.CopyTo($packet, 0)
 $client = [System.Net.Sockets.UdpClient]::new()
 $endpoint = [System.Net.IPEndPoint]::new([System.Net.IPAddress]::Parse($Target), $Port)
 
+# Multicast targets need loopback enabled for local tests (receiver on the
+# same machine); harmless for unicast.
+try {
+    $ip = [System.Net.IPAddress]::Parse($Target)
+    if (($ip.GetAddressBytes()[0] -band 0xF0) -eq 0xE0) {
+        $client.Client.SetSocketOption(
+            [System.Net.Sockets.SocketOptionLevel]::IP,
+            [System.Net.Sockets.SocketOptionName]::MulticastLoopback, $true)
+    }
+} catch { }
+
 Write-Host ("sending {0} s of VBAN to {1}:{2} stream '{3}' ({4} Hz, 16-bit, 2 ch)" -f `
         $Seconds, $Target, $Port, $Stream, $SampleRate)
 

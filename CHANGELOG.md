@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 — 2026-11-01
+
+- Multicast support: when the URL host is a multicast group (for example
+  `vban://239.255.42.42/Stream1`), the receiver binds with `SO_REUSEADDR` and
+  joins the group. Several players on the same Lyrion host can then play the
+  same VBAN stream independently: every pipeline gets its own copy.
+- Documentation: multicast setup (VoiceMeeter target, firewall, IGMP) and a
+  clearer explanation of unicast vs. synced players.
+
 ## 1.0.1 — 2026-11-01
 
 - Fix: the player stayed in `waitingToPlay` and the pipeline ended with
