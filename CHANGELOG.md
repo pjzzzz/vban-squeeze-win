@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.1 — 2026-11-01
+
+- FLAC rule: pass raw-PCM flags to flac and declare capability T; document
+  that VoiceMeeter's engine sample rate must be 44100 Hz.
+
 ## 1.5.0 — 2026-11-01
 
 - Add a FLAC transcoder rule (ban flc * *) and let Lyrion prefer it for

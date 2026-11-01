@@ -28,7 +28,7 @@ VoiceMeeter (Windows)                 Lyrion Music Server (Windows)
 |-----------|-------------|
 | Lyrion Music Server | Windows, 7.9 or newer (tested with 9.1.1) |
 | VBAN sender | VoiceMeeter Banana / Potato / VoiceMeeter 8 |
-| Stream format | 16-bit PCM, 2 channels; any sample rate (resampled to 44100) |
+| Stream format | 16-bit PCM, 2 channels, **44100 Hz** (recommended) |
 | Player | Any Squeezebox or Squeezelite player (raw PCM support) |
 
 Lyrion's `pcm` stream format is fixed at 44100 Hz / 16-bit / stereo. The
