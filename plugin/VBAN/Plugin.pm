@@ -110,6 +110,7 @@ sub _cliSetTitle {
 	for my $client (Slim::Player::Client::clients()) {
 		my $url = Slim::Player::Playlist::url($client) || '';
 		next unless $url =~ m{^vban://[^/]+/\Q$stream\E$}i;
+		Slim::Music::Info::setTitle($url, $title);
 		Slim::Music::Info::setCurrentTitle($url, $title, $client);
 	}
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.2 — 2026-11-01
+
+- Update the playlist item title as well (setTitle), so the web UI and Jive
+  players (Duet) show the current track instead of the stream name.
+
 ## 1.3.1 — 2026-11-01
 
 - Apply a known title immediately when a pipeline starts, so the player does not

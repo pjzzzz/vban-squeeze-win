@@ -124,6 +124,7 @@ sub _start_title_timer {
 
 		${*$self}{'lastTitle'} = $title;
 
+		Slim::Music::Info::setTitle($url, $title);
 		Slim::Music::Info::setCurrentTitle($url, $title, $client);
 	};
 

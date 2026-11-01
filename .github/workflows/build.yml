@@ -34,25 +34,25 @@ jobs:
         run: go build -trimpath -ldflags "-s -w" -o plugin/VBAN/Bin/MSWin32-x64-multi-thread/vban_url_receptor.exe ./receiver
 
       - name: Package plugin
-        run: pwsh -NoProfile -File tools/make-zip.ps1 -Version 1.3.1
+        run: pwsh -NoProfile -File tools/make-zip.ps1 -Version 1.3.2
 
       - name: Checksums
         run: |
-          $hash = (Get-FileHash dist/vban-1.3.1.zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  vban-1.3.1.zip" | Set-Content dist/SHA256SUMS.txt
+          $hash = (Get-FileHash dist/vban-1.3.2.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  vban-1.3.2.zip" | Set-Content dist/SHA256SUMS.txt
           Get-Content dist/SHA256SUMS.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: vban-plugin
-          path: dist/vban-1.3.1.zip
+          path: dist/vban-1.3.2.zip
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/vban-1.3.1.zip
+            dist/vban-1.3.2.zip
             dist/SHA256SUMS.txt
             vban.xml
