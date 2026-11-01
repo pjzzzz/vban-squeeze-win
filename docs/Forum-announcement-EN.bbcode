@@ -62,7 +62,7 @@ Manual installation from the zip is described in the README. Direct download: [U
 Then play this URL on a player ([B]Radio -> Play from URL[/B], or add it as a favourite):
 
 [CODE]vban://<sender-ip>/Stream1
-vban://192.168.178.79/Stream1[/CODE]
+vban://192.168.1.10/Stream1[/CODE]
 
 [QUOTE][B]One important gotcha: sample rates.[/B] VoiceMeeter's ASIO driver runs at the engine rate. The program that feeds VoiceMeeter must output that same rate, otherwise VoiceMeeter converts it internally and the audio can come out roughly [B]8.8% too fast and too high[/B] (48000 vs 44100). If that happens, set the source output rate to the engine rate. For MediaMonkey 5: [I]Tools -> Options -> Output Plug-ins -> ASIO output -> Configure -> Sample rate 48000[/I] (when the engine is 48000).[/QUOTE]
 
@@ -72,7 +72,7 @@ The receiver understands VBAN TEXT and shows the title on the player. Two ways t
 
 [LIST]
 [*][B]tools/smtc-sendtext.ps1[/B] (included): reads the Windows "now playing" information and sends VBAN TEXT. Works with MediaMonkey, Spotify, browsers and other players that report to the Windows media controls.
-[*]A small companion add-on for MediaMonkey 5 can push the title through Lyrion's CLI ([B]vban title[/B]) and needs no extra process: [URL=https://github.com/pjzzzz/vban-squeeze-win/tree/main/mm5-addon]mm5-addon source[/URL] | [URL=https://github.com/pjzzzz/vban-squeeze-win/raw/main/mm5-addon/MMSync-Lyrion-Bridge.mmip]direct .mmip download[/URL].
+[*]A small companion add-on for MediaMonkey 5 can push the title through Lyrion's CLI ([B]vban title[/B]) and needs no extra process: [URL=https://github.com/pjzzzz/vban-squeeze-win/tree/main/mm5-addon]mm5-addon source[/URL] | [URL=https://github.com/pjzzzz/vban-squeeze-win/releases/download/v1.7.4/MMSync-Lyrion-Bridge.mmip]direct .mmip download[/URL].
 [/LIST]
 
 [B]Multiple players[/B]

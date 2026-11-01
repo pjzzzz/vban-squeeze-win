@@ -78,7 +78,7 @@ VoiceMeeter setup
 Then play this URL on a player (Radio -> Play from URL, or add it as a favourite):
 
    vban://<sender-ip>/Stream1
-   vban://192.168.178.79/Stream1
+   vban://192.168.1.10/Stream1
 
 The sender IP is shown at the top of the VoiceMeeter VBAN window.
 
@@ -91,7 +91,7 @@ Track info
 The receiver understands VBAN TEXT and shows the title on the player. Two ways to feed it:
 
 - tools/smtc-sendtext.ps1 (included): reads the Windows "now playing" information and sends VBAN TEXT. Works with MediaMonkey, Spotify, browsers and other players that report to the Windows media controls.
-- A small companion add-on for MediaMonkey 5 can push the title through Lyrion's CLI (vban title <text>) and needs no extra process: [mm5-addon source](https://github.com/pjzzzz/vban-squeeze-win/tree/main/mm5-addon) | [direct .mmip download](https://github.com/pjzzzz/vban-squeeze-win/raw/main/mm5-addon/MMSync-Lyrion-Bridge.mmip).
+- A small companion add-on for MediaMonkey 5 can push the title through Lyrion's CLI (vban title <text>) and needs no extra process: [mm5-addon source](https://github.com/pjzzzz/vban-squeeze-win/tree/main/mm5-addon) | [direct .mmip download](https://github.com/pjzzzz/vban-squeeze-win/releases/download/v1.7.4/MMSync-Lyrion-Bridge.mmip).
 
 Multiple players
 
