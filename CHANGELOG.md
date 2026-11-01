@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0 — 2026-11-01
+
+- Add a FLAC transcoder rule (ban flc * *) and let Lyrion prefer it for
+  players that support FLAC. The sample rate travels inside the FLAC stream, so
+  the player can no longer mis-negotiate the PCM rate and play too fast/slow.
+
 ## 1.4.5 — 2026-11-01
 
 - Use the VBAN header rate as a stable resample ratio and only adjust with an

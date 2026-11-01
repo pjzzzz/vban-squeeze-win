@@ -8,11 +8,11 @@
     is what Lyrion expects.
 
 .EXAMPLE
-    .\tools\make-zip.ps1 -Version 1.4.5
+    .\tools\make-zip.ps1 -Version 1.5.0
 #>
 [CmdletBinding()]
 param(
-    [string]$Version = '1.4.5',
+    [string]$Version = '1.5.0',
     [string]$Exe = '',
     [string]$OutputDir = ''
 )
