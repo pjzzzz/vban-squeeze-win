@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.1 - 2026-11-01
+
+- New plugin logo: cyan waveform, `VBAN` wordmark and the tagline
+  `pjzzzz's Lyrion VBAN magic` (source in `docs/logo-vban-source.png`).
+
 ## 1.7.0 - 2026-11-01
 
 - The receiver now writes PCM at the rate Lyrion announces to the player
