@@ -318,9 +318,9 @@ type stats struct {
 func receive(ctx context.Context, stream streamURL, opts options, out io.Writer, log *logger) (stats, error) {
 	st := stats{start: time.Now()}
 
-	conn, err := listen(stream.Port, stream.Host, opts.iface, log)
+	conn, err := listenWithRetry(ctx, stream, opts, log)
 	if err != nil {
-		return st, fmt.Errorf("cannot listen on UDP port %d: %w", stream.Port, err)
+		return st, err
 	}
 	defer conn.Close()
 
@@ -559,6 +559,33 @@ func parseMulticastHost(host string) (net.IP, bool, error) {
 		return nil, true, fmt.Errorf("IPv6 multicast is not supported: %s", host)
 	}
 	return ip.To4(), true, nil
+}
+
+func listenWithRetry(ctx context.Context, stream streamURL, opts options, log *logger) (*net.UDPConn, error) {
+	deadline := time.Now().Add(10 * time.Second)
+	attempt := 0
+
+	for {
+		conn, err := listen(stream.Port, stream.Host, opts.iface, log)
+		if err == nil {
+			return conn, nil
+		}
+
+		attempt++
+		if attempt == 1 || attempt%10 == 0 {
+			log.info("cannot listen on UDP port %d yet (%v); retrying", stream.Port, err)
+		}
+
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("cannot listen on UDP port %d: %w", stream.Port, err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 func listen(port int, host string, iface net.IP, log *logger) (*net.UDPConn, error) {

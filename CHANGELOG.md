@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.4 — 2026-11-01
+
+- Retry binding the UDP port for up to 10 seconds, so a short overlap with a
+  previous receiver (quick stop/play, stale process) no longer aborts the new
+  stream.
+
 ## 1.4.3 — 2026-11-01
 
 - Larger output queue (8 MB), so the read loop keeps measuring the true input
