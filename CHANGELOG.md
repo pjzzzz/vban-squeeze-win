@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.2 - 2026-11-01
+
+- Rename the logo to `vban-logo.png` so browsers pick it up immediately
+  (Lyrion serves plugin images with a 7-day cache).
+
 ## 1.7.1 - 2026-11-01
 
 - New plugin logo: cyan waveform, `VBAN` wordmark and the tagline
