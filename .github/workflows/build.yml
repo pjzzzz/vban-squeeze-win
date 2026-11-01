@@ -1,0 +1,58 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Test
+        run: go test ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build receiver
+        run: go build -trimpath -ldflags "-s -w" -o plugin/VBAN/Bin/MSWin32-x64-multi-thread/vban_url_receptor.exe ./receiver
+
+      - name: Package plugin
+        run: pwsh -NoProfile -File tools/make-zip.ps1 -Version 1.0.0
+
+      - name: Checksums
+        run: |
+          $hash = (Get-FileHash dist/vban-1.0.0.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  vban-1.0.0.zip" | Set-Content dist/SHA256SUMS.txt
+          Get-Content dist/SHA256SUMS.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vban-plugin
+          path: dist/vban-1.0.0.zip
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/vban-1.0.0.zip
+            dist/SHA256SUMS.txt
+            vban.xml

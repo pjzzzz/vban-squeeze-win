@@ -1,0 +1,13 @@
+# Build output
+dist/
+
+# Receiver build artifact (built by CI or tools/make-zip.ps1)
+plugin/VBAN/Bin/**/*.exe
+
+# Local test output
+*.pcm
+recv.err
+recv.out
+
+# Commit-gate markers
+patches/

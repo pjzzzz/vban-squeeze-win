@@ -1,0 +1,30 @@
+vban-squeeze-win
+===============
+
+Windows port of vban-squeeze for Lyrion Music Server.
+Copyright (C) 2026 pjzzzz
+
+This project contains work derived from the following GPL-3.0 projects:
+
+1. vban-squeeze
+   https://github.com/markusbuschhoff/vban-squeeze
+   Copyright (C) 2017 Markus Buschhoff
+   Used for: plugin structure, vban:// URL scheme, custom-convert rules.
+
+2. vban (VBAN command-line tools)
+   https://github.com/quiniouben/vban
+   Copyright (C) 2015-2026 Benoît Quiniou
+   Used for: VBAN protocol header layout, sample-rate table, packet validation.
+
+3. WaveInput (plugin skeleton)
+   Copyright (C) 2008 Bryan Alton and others
+   Used for: Slim::Player::Pipeline based plugin structure.
+
+The Perl plugin files in plugin/VBAN are distributed under the same terms as
+Perl itself, as stated in their source headers. The Go receiver and the rest of
+this repository are distributed under the GNU General Public License v3.0
+(see LICENSE).
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.

@@ -1,0 +1,131 @@
+# VBAN, a plugin to play VBAN streams on Lyrion Music Server (Windows port)
+#
+# Copyright (C) 2017 by Markus Buschhoff
+# Windows port (C) 2026 by pjzzzz
+# Based on WaveInput, (C) 2008 Bryan Alton and others
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
+
+package Plugins::VBAN::VBAN;
+
+use strict;
+
+use base qw(Slim::Player::Pipeline);
+
+use Slim::Music::Info;
+use Slim::Player::ProtocolHandlers;
+use Slim::Player::Song;
+use Slim::Player::TranscodingHelper;
+use Slim::Utils::Log;
+use Slim::Utils::Misc;
+use Slim::Utils::Prefs;
+use Slim::Utils::Scanner::Remote;
+use Slim::Utils::Strings qw(string);
+
+Slim::Player::ProtocolHandlers->registerHandler('vban', __PACKAGE__);
+
+my $log   = logger('plugin.VBAN');
+my $prefs = preferences('server');
+
+sub isRemote { 1 }
+
+# Live stream: keep the pipeline buffer small so playback starts quickly.
+sub bufferThreshold { 150 }
+
+sub new {
+	my $class = shift;
+	my $args  = shift;
+
+	my $transcoder = $args->{'transcoder'};
+	my $url        = $args->{'url'};
+	my $client     = $args->{'client'};
+
+	my $restoredurl = $url;
+	$restoredurl =~ s|^vban:||;
+
+	# Defence in depth: this URL ends up in a transcoder command line that
+	# Lyrion hands to socketwrapper/cmd.exe. Refuse anything that could act as
+	# a shell metacharacter instead of relying on quoting.
+	unless ($url =~ m{\Avban://[A-Za-z0-9.\-]{1,253}(?::\d{1,5})?(?:/[A-Za-z0-9._~%\-]{0,16})?\z}i) {
+		$log->error("refusing invalid VBAN URL: $url");
+		return;
+	}
+
+	Slim::Music::Info::setContentType($url, 'vban');
+
+	my $quality = $prefs->client($client)->get('lameQuality');
+	my $command = Slim::Player::TranscodingHelper::tokenizeConvertCommand2(
+		$transcoder, $restoredurl, $url, 1, $quality
+	);
+
+	$log->debug("VBAN command = '$command'");
+
+	unless ($command) {
+		$log->error("could not build a transcoder command for $url "
+			. "(is vban_url_receptor.exe present in the plugin Bin folder?)");
+		return;
+	}
+
+	my $self = $class->SUPER::new(undef, $command);
+
+	${*$self}{'contentType'} = $transcoder->{'streamformat'};
+
+	return $self;
+}
+
+sub canDoAction {
+	my ($class, $client, $url, $action) = @_;
+
+	$log->debug("Action=$action for $url");
+
+	return 1;
+}
+
+sub canHandleTranscode {
+	my ($self, $song) = @_;
+
+	return 1;
+}
+
+sub getStreamBitrate {
+	my ($self, $maxRate) = @_;
+
+	return Slim::Player::Song::guessBitrateFromFormat(${*$self}{'contentType'}, $maxRate);
+}
+
+sub isAudioURL { 1 }
+
+sub scanUrl {
+	my ($class, $url, $args) = @_;
+
+	Slim::Utils::Scanner::Remote->scanURL($url, $args);
+}
+
+sub canDirectStream {
+	return 0;
+}
+
+sub contentType {
+	my $self = shift;
+
+	return ${*$self}{'contentType'};
+}
+
+sub getMetadataFor {
+	my ($class, $client, $url, $forceCurrent) = @_;
+
+	my $icon = eval { Plugins::VBAN::Plugin->_pluginDataFor('icon') }
+		|| 'plugins/VBAN/html/images/vban.png';
+
+	$log->debug("getMetadataFor $url ($icon)");
+
+	return {
+		bitrate => 'CD ',
+		icon    => $icon,
+		cover   => $icon,
+		type    => 'VBAN stream',
+	};
+}
+
+1;

@@ -1,0 +1,7 @@
+# String file for the VBAN plugin (Windows port)
+
+PLUGIN_VBAN
+	EN	VBAN
+
+PLUGIN_VBAN_DESC
+	EN	Play VBAN (https://vb-audio.com/Voicemeeter/vban.htm) streams on your Squeezebox devices. Use vban://host[:port]/streamname. The bundled Windows receiver must be allowed through the firewall (inbound UDP 6980).
