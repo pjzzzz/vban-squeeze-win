@@ -91,7 +91,7 @@ Track info
 The receiver understands VBAN TEXT and shows the title on the player. Two ways to feed it:
 
 - tools/smtc-sendtext.ps1 (included): reads the Windows "now playing" information and sends VBAN TEXT. Works with MediaMonkey, Spotify, browsers and other players that report to the Windows media controls.
-- A small companion add-on for MediaMonkey 5 can push the title through Lyrion's CLI (vban title <text>); ask in this thread if you want it.
+- A small companion add-on for MediaMonkey 5 can push the title through Lyrion's CLI (vban title <text>) and needs no extra process: [mm5-addon source](https://github.com/pjzzzz/vban-squeeze-win/tree/main/mm5-addon) | [direct .mmip download](https://github.com/pjzzzz/vban-squeeze-win/raw/main/mm5-addon/MMSync-Lyrion-Bridge.mmip).
 
 Multiple players
 

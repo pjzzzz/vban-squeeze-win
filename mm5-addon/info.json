@@ -1,0 +1,11 @@
+{
+    "title": "MMSync - Lyrion Audio Bridge",
+    "id": "mmSyncLyrionBridge",
+    "description": "Streams MediaMonkey audio to a Lyrion (Squeezebox) player. Auto-switches the player to the PC audio stream on play/pause/stop, and can send track info to the VBAN plugin.",
+    "version": "0.2.1",
+    "minAppVersion": "5.0.0",
+    "type": "general",
+    "author": "JP",
+    "icon": "music",
+    "config": "config.js"
+}

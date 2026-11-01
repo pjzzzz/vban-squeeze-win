@@ -228,12 +228,26 @@ Notes:
 
 - Use **Windows PowerShell 5.1** (`powershell.exe`), not `pwsh`: the WinRT media
   API is not available in PowerShell 7.
-- **MediaMonkey users** do not need this script: the MMSync addon can send the
-  title directly through Lyrion's CLI (`vban title <text>`).
+- **MediaMonkey users** do not need this script: the
+  [MMSync add-on](mm5-addon/README.md) sends the title directly through
+  Lyrion's CLI (`vban title <text>`), including the album.
 - The stream name must match the audio stream (`Stream1`).
 - The receiver writes `C:\ProgramData\Lyrion\vban-title-<stream>.txt`; the
   plugin polls it every 2 seconds and updates the player. Without the sender the
   player keeps showing the stream name.
+
+## MediaMonkey 5 add-on (optional)
+
+`mm5-addon/` contains a small MediaMonkey 5 add-on that can
+
+- switch a Lyrion player to the PC audio stream on play / pause / stop
+  (optional — **turn this off when you use VBAN**), and
+- send `artist|title|album` to the VBAN plugin on every track change.
+
+Install `mm5-addon/MMSync-Lyrion-Bridge.mmip` through
+**Tools → Options → Add-ons → Add…**. No server address, player MAC or stream
+URL is pre-filled. See [mm5-addon/README.md](mm5-addon/README.md) for
+configuration and troubleshooting.
 
 ## Troubleshooting
 

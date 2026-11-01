@@ -1,0 +1,63 @@
+<div class="uiRows">
+    <div>
+        <div data-id="chbEnabled" data-control-class="Checkbox" data-tip="Enable or disable the automatic player switching. Stays idle until the server address, player MAC and stream URL are filled in.">Enable MMSync bridge</div>
+    </div>
+    <div>First run: fill in the server address, player MAC and stream URL, then save.</div>
+    <fieldset>
+        <legend>Lyrion server</legend>
+        <table>
+            <tr data-tip="IP address or host name of the Lyrion (LMS) server">
+                <td><label>Server address</label></td>
+                <td class="flex">
+                    <div data-id="editLyrionHost" class="flex fill" data-control-class="Edit" data-init-params="{type: 'text'}"></div>
+                </td>
+            </tr>
+            <tr data-tip="HTTP port of the Lyrion web UI / JSON-RPC (default 9002)">
+                <td><label>Server port</label></td>
+                <td class="flex">
+                    <div data-id="editLyrionPort" class="flex fill" data-control-class="Edit" data-init-params="{type: 'text'}"></div>
+                </td>
+            </tr>
+            <tr data-tip="MAC address of the Squeezebox player to control (for example AA:BB:CC:DD:EE:FF)">
+                <td><label>Player MAC</label></td>
+                <td class="flex">
+                    <div data-id="editPlayerMac" class="flex fill" data-control-class="Edit" data-init-params="{type: 'text'}"></div>
+                </td>
+            </tr>
+        </table>
+    </fieldset>
+    <fieldset>
+        <legend>Stream</legend>
+        <table>
+            <tr data-tip="URL of the swyh-rs audio stream (RF64 is recommended for low latency)">
+                <td><label>Stream URL</label></td>
+                <td class="flex">
+                    <div data-id="editStreamUrl" class="flex fill" data-control-class="Edit" data-init-params="{type: 'text'}"></div>
+                </td>
+            </tr>
+        </table>
+    </fieldset>
+    <fieldset>
+        <legend>VBAN track info</legend>
+        <table>
+            <tr data-tip="Stream name as configured in the VBAN plugin (Settings > Plugins > VBAN), default Stream1">
+                <td><label>Stream name</label></td>
+                <td class="flex">
+                    <div data-id="editVbanStream" class="flex fill" data-control-class="Edit" data-init-params="{type: 'text'}"></div>
+                </td>
+            </tr>
+        </table>
+        <div data-id="chbVbanTitle" data-control-class="Checkbox" data-tip="Sends artist, title and album to Lyrion on every track change, independent of the player switching. Leave the MMSync bridge off when you use this.">Send track info to VBAN</div>
+        <div>When you use the VBAN plugin, switch the MMSync bridge off and keep only this option.</div>
+    </fieldset>
+    <div>
+        <div data-id="chbPowerOffOnStop" data-control-class="Checkbox" data-tip="Power off the player when MediaMonkey stops">Power off the player on stop</div>
+    </div>
+    <div class="flex row">
+        <div data-control-class="Button" data-id="btnTestConnection">Test connection</div>
+        <div data-control-class="Button" data-id="btnTestStream">Test stream</div>
+    </div>
+    <div>
+        <div id="lblStatus" role="status" aria-live="polite"></div>
+    </div>
+</div>
