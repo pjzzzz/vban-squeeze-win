@@ -11,3 +11,4 @@ recv.out
 
 # Commit-gate markers
 patches/
+*.err

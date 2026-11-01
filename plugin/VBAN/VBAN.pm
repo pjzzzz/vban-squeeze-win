@@ -72,7 +72,10 @@ sub new {
 		return;
 	}
 
-	my $self = $class->SUPER::new(undef, $command);
+	# Third argument = "local": skip socketwrapper's -w stream check. A VBAN
+	# source can be silent for a while (VoiceMeeter stream switched off); the
+	# receiver must stay alive so playback resumes when the source returns.
+	my $self = $class->SUPER::new(undef, $command, 1);
 
 	${*$self}{'contentType'} = $transcoder->{'streamformat'};
 

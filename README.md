@@ -188,6 +188,7 @@ ports; *sync master* — the player in a sync group that Lyrion streams to.
 | Clicks or dropouts | Use a wired network, keep the VBAN stream on a single player, and check for packet loss (`gaps` in the receiver stats). |
 | Second player stays silent | Unicast: two pipelines cannot share UDP 6980. Use multicast (`vban://239.255.42.42/Stream1`) or a second stream on another port (`vban://<sender-ip>:6981/Stream2`). Synced players share one stream and are not affected. |
 | `vban_url_receptor.exe` blocked by SmartScreen | Run `Unblock-File` on the binary (see installation), or right-click the file → **Properties** → **Unblock**. |
+| Another app takes over playback (old URL returns) | Another controller (for example the MMSync/MediaMonkey bridge) sends a play command on track change. Disable its bridge/toggle in that app, or use a separate player for VBAN. |
 
 Lyrion writes transcoder output and the receiver's stderr to
 `C:\ProgramData\Lyrion\Logs\server.log` (the exact `Logs` folder follows your
@@ -231,7 +232,7 @@ interfaces to receive the sender's packets. Mitigations:
 - Releases include a `SHA256SUMS.txt`; verify the zip before installing:
 
   ```powershell
-  Get-FileHash .\vban-1.1.0.zip -Algorithm SHA256
+  Get-FileHash .\vban-1.2.2.zip -Algorithm SHA256
   ```
 
 ## Building from source
@@ -248,10 +249,10 @@ go vet ./...
 go build -trimpath -ldflags "-s -w" `
     -o plugin/VBAN/Bin/MSWin32-x64-multi-thread/vban_url_receptor.exe ./receiver
 
-.\tools\make-zip.ps1 -Version 1.1.0
+.\tools\make-zip.ps1 -Version 1.2.2
 ```
 
-The plugin zip is written to `dist\vban-1.1.0.zip`. GitHub Actions builds the
+The plugin zip is written to `dist\vban-1.2.2.zip`. GitHub Actions builds the
 same artifact on every push and attaches it to tagged releases.
 
 ## Limitations

@@ -5,3 +5,18 @@ PLUGIN_VBAN
 
 PLUGIN_VBAN_DESC
 	EN	Play VBAN (https://vb-audio.com/Voicemeeter/vban.htm) streams on your Squeezebox devices. Use vban://host[:port]/streamname. The bundled Windows receiver must be allowed through the firewall (inbound UDP 6980).
+
+PLUGIN_VBAN_SENDER
+	EN	VBAN sender
+
+PLUGIN_VBAN_SENDER_DESC
+	EN	IP address or multicast group of the machine running VoiceMeeter (for example 192.168.178.79 or 239.255.42.42).
+
+PLUGIN_VBAN_PORT
+	EN	UDP port
+
+PLUGIN_VBAN_STREAM
+	EN	VBAN stream name
+
+PLUGIN_VBAN_CONFIGURE
+	EN	Configure the VBAN sender under Settings / Plugins / VBAN

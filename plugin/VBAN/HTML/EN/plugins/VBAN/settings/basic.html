@@ -1,0 +1,17 @@
+[% PROCESS settings/header.html %]
+
+	[% WRAPPER settingSection %]
+		[% WRAPPER settingGroup title="PLUGIN_VBAN_SENDER" desc="PLUGIN_VBAN_SENDER_DESC" %]
+			<input type="text" class="stdedit" name="pref_host" id="pref_host" value="[% prefs.host | html %]" size="24">
+			<br/><br/>
+
+			<label for="pref_port" class="stdlabel">[% "PLUGIN_VBAN_PORT" | string %]</label>
+			<input type="text" class="stdedit" name="pref_port" id="pref_port" value="[% prefs.port | html %]" size="6">
+			<br/><br/>
+
+			<label for="pref_stream" class="stdlabel">[% "PLUGIN_VBAN_STREAM" | string %]</label>
+			<input type="text" class="stdedit" name="pref_stream" id="pref_stream" value="[% prefs.stream | html %]" size="16">
+		[% END %]
+	[% END %]
+
+[% PROCESS settings/footer.html %]

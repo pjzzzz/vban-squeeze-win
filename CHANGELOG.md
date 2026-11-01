@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.2 — 2026-11-01
+
+- The receiver keeps the PCM stream continuous: when no VBAN packets arrive it
+  writes 100 ms blocks of silence, so Lyrion and the player never mark the
+  stream as failed. Audio resumes by itself when the sender returns.
+## 1.2.1 — 2026-11-01
+
+- The pipeline no longer uses socketwrapper's `-w` stream check, so the
+  receiver stays alive when the VBAN source is temporarily silent. Playback
+  resumes when VoiceMeeter starts sending again, without pressing play.
+- UI: the plugin is registered as an app (Apps → VBAN) and keeps its Radio
+  menu entry; Settings → Plugins → VBAN configures sender IP, port and stream.
 ## 1.1.0 — 2026-11-01
 
 - Multicast support: when the URL host is a multicast group (for example

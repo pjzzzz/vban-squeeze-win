@@ -11,7 +11,7 @@ package Plugins::VBAN::Plugin;
 
 use strict;
 
-use base qw(Slim::Plugin::Base);
+use base qw(Slim::Plugin::OPMLBased);
 
 use File::Basename qw(dirname);
 use File::Spec::Functions qw(catdir catfile);
@@ -19,6 +19,11 @@ use File::Spec::Functions qw(catdir catfile);
 use Slim::Utils::Log;
 use Slim::Utils::Misc;
 use Slim::Utils::OSDetect;
+use Slim::Utils::Prefs;
+use Slim::Utils::Strings qw(string);
+
+use Plugins::VBAN::Settings;
+use Plugins::VBAN::VBAN;
 
 # Create the log category before loading the protocol handler.
 my $log = Slim::Utils::Log->addLogCategory({
@@ -27,7 +32,7 @@ my $log = Slim::Utils::Log->addLogCategory({
 	'description'  => getDisplayName(),
 });
 
-use Plugins::VBAN::VBAN;
+my $prefs = preferences('plugin.VBAN');
 
 ################################
 ### Plugin Interface ###########
@@ -36,7 +41,21 @@ use Plugins::VBAN::VBAN;
 sub initPlugin {
 	my $class = shift;
 
+	$prefs->init({
+		host   => '',
+		port   => 6980,
+		stream => 'Stream1',
+	});
+
 	$class->_setupBinPath();
+
+	Plugins::VBAN::Settings->new;
+
+	$class->SUPER::initPlugin(
+		feed   => \&handleFeed,
+		tag    => 'vban',
+		is_app => 1,
+	);
 
 	$log->info('Initialising ' . $class->_pluginDataFor('version') . ' on ' . $^O);
 
@@ -49,6 +68,44 @@ sub shutdownPlugin {
 
 sub getDisplayName {
 	return ('PLUGIN_VBAN');
+}
+
+# Radio menu entry: one item for the configured VBAN stream.
+sub handleFeed {
+	my ($client, $cb, $args, $params) = @_;
+
+	my $host   = $prefs->get('host');
+	my $port   = $prefs->get('port') || 6980;
+	my $stream = $prefs->get('stream') || 'Stream1';
+
+	my @items;
+
+	if ($host) {
+		my $url = 'vban://' . $host
+			. ($port == 6980 ? '' : ":$port")
+			. '/' . $stream;
+
+		# Same whitelist as the protocol handler: never offer a URL that could
+		# act as a shell metacharacter or a malformed stream name.
+		if (Plugins::VBAN::VBAN->_valid_url($url)) {
+			push @items, {
+				name     => $stream,
+				type     => 'audio',
+				url      => $url,
+				icon     => Plugins::VBAN::Plugin->_pluginDataFor('icon'),
+				onselect => 'play',
+			};
+		}
+	}
+
+	unless (@items) {
+		push @items, {
+			name => string('PLUGIN_VBAN_CONFIGURE'),
+			type => 'text',
+		};
+	}
+
+	$cb->({ items => \@items });
 }
 
 # Lyrion already adds plugin/Bin/<binArch> to its search path, but the

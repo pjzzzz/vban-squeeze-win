@@ -293,6 +293,7 @@ type stats struct {
 	gaps         int
 	bytesIn      int64
 	bytesOut     int64
+	silence      int64
 	frames       int64
 	peak         int
 	sampleRate   int
@@ -321,6 +322,13 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 
 	buf := make([]byte, vbanMaxPacketSize)
 
+	// A VBAN source can go silent (stream switched off). Keep the pipeline fed
+	// with silence so Lyrion and the player do not mark the stream as failed;
+	// real audio resumes as soon as packets arrive again.
+	const silenceInterval = 100 * time.Millisecond
+	silence := make([]byte, 44100*4*int(silenceInterval/time.Millisecond)/1000)
+	lastWrite := time.Now()
+
 	var lastFrame uint32
 	haveFrame := false
 	announced := false
@@ -339,7 +347,7 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 		default:
 		}
 
-		readDeadline := time.Now().Add(500 * time.Millisecond)
+		readDeadline := time.Now().Add(silenceInterval)
 		if !deadline.IsZero() && deadline.Before(readDeadline) {
 			readDeadline = deadline
 		}
@@ -351,6 +359,21 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 		if err != nil {
 			var netErr net.Error
 			if errors.As(err, &netErr) && netErr.Timeout() {
+				if time.Since(lastWrite) >= silenceInterval {
+					written, werr := out.Write(silence)
+					if werr != nil {
+						if opts.device == "" && isClosedPipe(werr) {
+							log.debug("output closed by consumer: %v", werr)
+							st.consumerGone = true
+							st.duration = time.Since(st.start)
+							return st, nil
+						}
+						return st, fmt.Errorf("writing PCM output: %w", werr)
+					}
+					st.silence += int64(written)
+					st.bytesOut += int64(written)
+					lastWrite = time.Now()
+				}
 				continue
 			}
 			if ctx.Err() != nil {
@@ -438,6 +461,7 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 		st.bytesIn += int64(len(pkt.Payload))
 		st.bytesOut += int64(written)
 		st.frames += int64(pkt.SamplesPerFrame)
+		lastWrite = time.Now()
 	}
 
 	st.duration = time.Since(st.start)
@@ -523,6 +547,7 @@ func printStats(w io.Writer, st stats) {
 	fmt.Fprintf(w, "gaps        : %d\n", st.gaps)
 	fmt.Fprintf(w, "payload in  : %d bytes\n", st.bytesIn)
 	fmt.Fprintf(w, "pcm out     : %d bytes\n", st.bytesOut)
+	fmt.Fprintf(w, "silence out : %d bytes\n", st.silence)
 	fmt.Fprintf(w, "frames      : %d (%.2f s at 44100 Hz)\n", st.frames, float64(st.frames)/44100)
 	fmt.Fprintf(w, "peak        : %d (%.1f%%)\n", st.peak, peakPercent)
 	if st.sampleRate != 0 {
