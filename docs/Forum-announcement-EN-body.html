@@ -1,0 +1,105 @@
+<p class="lead">This is a <strong>Windows port of vban-squeeze</strong> by Markus Buschhoff. It lets Lyrion Music Server play a <strong>VBAN audio stream from VoiceMeeter</strong> on any Squeezebox or Squeezelite player.</p>
+
+<p><strong>TL;DR:</strong> if you run VoiceMeeter on a Windows PC, this plugin puts that audio on your Squeezebox in another room — no extra hardware, no second audio path.</p>
+
+<p>The original plugin is Linux-only because it depends on the Linux <code>vban_receptor</code> binary. This port ships a native Windows receiver instead (Go, no runtime required).</p>
+
+<h3>How it works</h3>
+
+<pre>VoiceMeeter  --VBAN/UDP-->  Lyrion (Windows)  --PCM-->  Squeezebox
+                           vban_url_receptor.exe</pre>
+
+<p>The receiver listens for VBAN on UDP, converts 8/16/24/32-bit and float samples to 16-bit stereo PCM, and hands the stream to Lyrion's normal transcoder pipeline. Lyrion then treats it like any other radio stream.</p>
+
+<h3>Features</h3>
+<ul>
+  <li>Native Windows receiver — no Perl wrapper, no Linux binary</li>
+  <li>Plays on Squeezebox and Squeezelite players</li>
+  <li>Entry in <strong>Apps</strong> and in the <strong>Radio</strong> menu; host/port/stream in <strong>Settings → Plugins → VBAN</strong></li>
+  <li>Output rate follows the rate Lyrion announces to the player, so player and stream can never disagree</li>
+  <li><strong>Multicast</strong> for several independent players (<code>vban://239.255.42.42/Stream1</code>)</li>
+  <li><strong>Silence fill</strong>: when the VBAN source goes away the stream keeps running and resumes by itself when audio returns</li>
+  <li>Track info (title/artist) on the player, via VBAN TEXT or Lyrion's CLI</li>
+  <li>Switching between VBAN and a normal radio stream works without restarting Lyrion</li>
+</ul>
+
+<h3>Requirements</h3>
+<table>
+  <tr><th>Component</th><th>Requirement</th></tr>
+  <tr><td>Lyrion Music Server</td><td>Windows, 7.9 or newer (tested with 9.1.1)</td></tr>
+  <tr><td>VBAN sender</td><td>VoiceMeeter Banana / Potato / VoiceMeeter 8</td></tr>
+  <tr><td>Player</td><td>Any Squeezebox or Squeezelite player that supports raw PCM</td></tr>
+  <tr><td>Network</td><td>Inbound UDP 6980 on the Lyrion host</td></tr>
+</table>
+
+<h3>Installation</h3>
+
+<p><strong>1.</strong> Add this repository under <strong>Settings → Plugins → Additional Repositories</strong>:</p>
+<pre>https://raw.githubusercontent.com/pjzzzz/vban-squeeze-win/main/vban.xml</pre>
+
+<p><strong>2.</strong> Install <strong>VBAN</strong> from the plugin list and restart Lyrion.</p>
+
+<p><strong>3.</strong> Allow inbound UDP 6980 (elevated PowerShell):</p>
+<pre>New-NetFirewallRule -DisplayName 'VBAN receptor (UDP 6980)' -Direction Inbound -Protocol UDP -LocalPort 6980 -Action Allow -Profile Any</pre>
+
+<p>Manual installation from the zip is described in the README. Direct download: <a href="https://github.com/pjzzzz/vban-squeeze-win/releases/latest">github.com/pjzzzz/vban-squeeze-win/releases/latest</a></p>
+
+<h3>VoiceMeeter setup</h3>
+<ul>
+  <li><strong>VBAN</strong> button (top right) → <strong>Outgoing Streams</strong> → pick the bus you want</li>
+  <li><strong>IP address</strong>: the Lyrion server</li>
+  <li><strong>Sample rate</strong>: the <strong>same value as the VoiceMeeter engine</strong> (menu → System Settings → Sample Rate)</li>
+  <li><strong>Channels</strong>: 2 · <strong>Format</strong>: PCM 16 bits · <strong>Stream name</strong>: Stream1</li>
+  <li>Switch the stream <strong>On</strong> and <strong>VBAN On</strong></li>
+</ul>
+
+<p>Then play this URL on a player (<strong>Radio → Play from URL</strong>, or add it as a favourite):</p>
+<pre>vban://&lt;sender-ip&gt;/Stream1
+vban://192.168.178.79/Stream1</pre>
+
+<blockquote>
+<p><strong>One important gotcha: sample rates.</strong> VoiceMeeter's ASIO driver runs at the engine rate. The program that feeds VoiceMeeter must output that same rate, otherwise VoiceMeeter converts it internally and the audio can come out roughly <strong>8.8% too fast and too high</strong> (48000 vs 44100). If that happens, set the source output rate to the engine rate. For MediaMonkey 5: <em>Tools → Options → Output Plug-ins → ASIO output → Configure → Sample rate 48000</em> (when the engine is 48000).</p>
+</blockquote>
+
+<h3>Track info</h3>
+<p>The receiver understands VBAN TEXT and shows the title on the player. Two ways to feed it:</p>
+<ul>
+  <li><code>tools/smtc-sendtext.ps1</code> (included): reads the Windows "now playing" information and sends VBAN TEXT. Works with MediaMonkey, Spotify, browsers and other players that report to the Windows media controls.</li>
+  <li>A small companion add-on for MediaMonkey 5 can push the title through Lyrion's CLI (<code>vban title</code>). Ask in this thread if you want it.</li>
+</ul>
+
+<h3>Multiple players</h3>
+<ul>
+  <li><strong>Synced players</strong> share one stream: no extra configuration.</li>
+  <li><strong>Independent players</strong>: send a second VoiceMeeter stream on another port (<code>vban://&lt;sender-ip&gt;:6981/Stream2</code>), or use multicast (<code>vban://239.255.42.42/Stream1</code>) with IGMP snooping enabled on the switch.</li>
+</ul>
+
+<h3>Troubleshooting (quick)</h3>
+<ul>
+  <li><strong>Silence and a pipeline error in server.log</strong> — firewall (UDP 6980) or the VoiceMeeter stream is Off.</li>
+  <li><strong>"Buffering... 0 / 153600" and "Read to end of file or pipe"</strong> — a stale <code>vban_url_receptor.exe</code> still owns the port; end it with <code>Get-Process vban_url_receptor | Stop-Process</code> and play again.</li>
+  <li><strong>Audio too fast or too high</strong> — check the sample-rate gotcha above.</li>
+  <li><strong>Plugin not in the list</strong> — <code>install.xml</code> must be in <code>Cache\InstalledPlugins\Plugins\VBAN\</code>; restart Lyrion.</li>
+</ul>
+
+<h3>Diagnostics</h3>
+<p>The receiver writes <code>C:\ProgramData\Lyrion\vban-stats-Stream1.txt</code> once per second:</p>
+<pre>inputRate=47938.1
+ratio=1.0884
+targetRate=44100
+headerRate=48000</pre>
+<p><code>inputRate</code> is what arrives, <code>targetRate</code> is what the player gets, <code>ratio</code> is the conversion between them. If <code>targetRate</code> and the player's rate differ, the installation is outdated (usually an old <code>custom-convert.conf</code>).</p>
+
+<h3>Links</h3>
+<ul>
+  <li>Source and releases: <a href="https://github.com/pjzzzz/vban-squeeze-win">github.com/pjzzzz/vban-squeeze-win</a></li>
+  <li>Full manual (EN): <a href="https://github.com/pjzzzz/vban-squeeze-win/blob/main/docs/VBAN-Howto-EN.md">docs/VBAN-Howto-EN.md</a></li>
+  <li>Original Linux plugin by Markus Buschhoff: <a href="https://github.com/markusbuschhoff/vban-squeeze">github.com/markusbuschhoff/vban-squeeze</a></li>
+  <li>License: GPL-3.0 (original plugin: same terms as Perl)</li>
+</ul>
+
+<hr>
+
+<p>Feedback and test reports are welcome. When reporting a problem, please include: <strong>plugin version</strong>, <strong>Lyrion version and OS</strong>, <strong>player model</strong>, whether you use <strong>unicast or multicast</strong>, and the relevant lines from <code>server.log</code> plus the stats file.</p>
+
+<p>Windows-only for now; the upstream Linux plugin still works on Linux.</p>

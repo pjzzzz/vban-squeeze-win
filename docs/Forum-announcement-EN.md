@@ -5,8 +5,16 @@
 >
 > **ANNOUNCE: VBAN plugin (Windows) — play VoiceMeeter audio on your Squeezebox**
 >
-> The text is plain text on purpose: it pastes cleanly into the forum editor.
-> Bold the section headers afterwards if you like. Attach or link
+> There are three variants:
+>
+> - `Forum-announcement-EN.html` — open in a browser, select all, copy, paste
+>   into the forum editor (rich paste).
+> - `Forum-announcement-EN-body.html` — the same content as a bare HTML
+>   fragment, for the editor's **Source** (`</>`) mode.
+> - this file — plain text, for places that do not accept HTML.
+>
+> The text below is plain text on purpose: it pastes cleanly into the forum
+> editor. Bold the section headers afterwards if you like. Attach or link
 > `docs/VBAN-Howto-EN.md` (or its PDF) for the full manual.
 
 ---
