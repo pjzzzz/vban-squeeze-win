@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" alt="VBAN — PJZZZZ'S Lyrion VBAN magic" width="240">
+</p>
+
 # vban-squeeze-win
 
 Windows port of [vban-squeeze](https://github.com/markusbuschhoff/vban-squeeze):
