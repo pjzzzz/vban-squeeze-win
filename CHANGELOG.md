@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.3 — 2026-11-01
+
+- Larger output queue (8 MB), so the read loop keeps measuring the true input
+  rate during Lyrion's initial buffering; stats file now includes packet/frame
+  counters.
+
 ## 1.4.2 — 2026-11-01
 
 - Keep the rate measurement window across short read timeouts (caused by output

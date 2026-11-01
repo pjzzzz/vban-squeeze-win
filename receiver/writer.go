@@ -14,7 +14,7 @@ type asyncWriter struct {
 
 func newAsyncWriter(w io.Writer) *asyncWriter {
 	a := &asyncWriter{
-		ch:     make(chan []byte, 512),
+		ch:     make(chan []byte, 8192),
 		errCh:  make(chan error, 1),
 		closed: make(chan struct{}),
 	}

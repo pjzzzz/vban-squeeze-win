@@ -521,7 +521,7 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 			measureStart = time.Now()
 
 			if statsPath := statsFilePath(stream.Stream); statsPath != "" {
-				_ = os.WriteFile(statsPath, []byte(fmt.Sprintf("inputRate=%.1f\nratio=%.4f\n", rate, res.ratioValue())), 0644)
+				_ = os.WriteFile(statsPath, []byte(fmt.Sprintf("inputRate=%.1f\nratio=%.4f\ndatagrams=%d\nframes=%d\nduration=%.2f\n", rate, res.ratioValue(), st.datagrams, st.frames, time.Since(st.start).Seconds())), 0644)
 			}
 		}
 
