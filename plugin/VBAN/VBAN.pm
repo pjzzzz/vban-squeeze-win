@@ -63,22 +63,10 @@ sub new {
 
 	Slim::Music::Info::setContentType($url, 'vban');
 
-	my $quality = $prefs->client($client)->get('lameQuality');
-	my $command = Slim::Player::TranscodingHelper::tokenizeConvertCommand2(
-		$transcoder, $restoredurl, $url, 1, $quality
-	);
-
-	$log->debug("VBAN command = '$command'");
-
-	unless ($command) {
-		$log->error("could not build a transcoder command for $url "
-			. "(is vban_url_receptor.exe present in the plugin Bin folder?)");
-		return;
-	}
-
-	# The receiver always outputs 44100 Hz / 16-bit / stereo PCM. Make sure the
-	# player is told the same rate; otherwise it may play the stream too fast
-	# (48000) or too slow.
+	# The receiver outputs 44100 Hz / 16-bit / stereo PCM. Pin the track to the
+	# same values BEFORE the transcoder command is tokenized: $SAMPLERATE$ is
+	# expanded from the track samplerate, so doing this afterwards could give
+	# the receiver one rate and the player another.
 	eval {
 		my $song = $args->{'song'};
 		if ($song) {
@@ -98,6 +86,19 @@ sub new {
 	elsif (my $song = $args->{'song'}) {
 		my $track = eval { $song->track };
 		$log->debug("VBAN track samplerate after override: " . (($track && $track->samplerate) || 'undef'));
+	}
+
+	my $quality = $prefs->client($client)->get('lameQuality');
+	my $command = Slim::Player::TranscodingHelper::tokenizeConvertCommand2(
+		$transcoder, $restoredurl, $url, 1, $quality
+	);
+
+	$log->debug("VBAN command = '$command'");
+
+	unless ($command) {
+		$log->error("could not build a transcoder command for $url "
+			. "(is vban_url_receptor.exe present in the plugin Bin folder?)");
+		return;
 	}
 
 	# Third argument = "local": skip socketwrapper's -w stream check. A VBAN
@@ -174,6 +175,16 @@ sub _start_title_timer {
 	$apply->();
 
 	${*$self}{'titleTimer'} = Slim::Utils::Timers::setTimer($client, time() + 2, $timer);
+
+	# Diagnostic: log the rate the player is actually told, once per pipeline.
+	Slim::Utils::Timers::setTimer($client, time() + 4, sub {
+		my $song = eval { $client->streamingSong } or return;
+		my $track = eval { $song->track } or return;
+		$log->debug('VBAN stream rate: track samplerate='
+			. ($track->samplerate || 'undef')
+			. ' player code='
+			. (eval { $client->pcm_sample_rates($track) } || '?'));
+	});
 }
 
 sub close {

@@ -1,9 +1,10 @@
 // vban_url_receptor - Windows VBAN receiver for the Lyrion Music Server plugin.
 //
-// The receiver always outputs 44100 Hz stereo PCM (Lyrion's pcm format). VBAN
-// senders do not always run at 44100 Hz (VoiceMeeter uses its engine rate, and
-// the VBAN header rate can even be wrong), so the stream is resampled with
-// linear interpolation based on the measured frame rate.
+// The receiver outputs 16-bit stereo PCM at the rate passed with
+// --target-rate (the rate Lyrion announces to the player). VBAN senders do not
+// always use that rate (VoiceMeeter uses its engine rate, and the VBAN header
+// rate can even be wrong), so the stream is resampled with linear
+// interpolation based on the measured frame rate.
 package main
 
 import "encoding/binary"

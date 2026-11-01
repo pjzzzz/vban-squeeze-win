@@ -28,14 +28,16 @@ VoiceMeeter (Windows)                 Lyrion Music Server (Windows)
 |-----------|-------------|
 | Lyrion Music Server | Windows, 7.9 or newer (tested with 9.1.1) |
 | VBAN sender | VoiceMeeter Banana / Potato / VoiceMeeter 8 |
-| Stream format | 16-bit PCM, 2 channels, **44100 Hz** (recommended) |
+| Stream format | 16-bit PCM, 2 channels, any rate (the receiver follows the player) |
 | Player | Any Squeezebox or Squeezelite player (raw PCM support) |
 
-Lyrion's `pcm` stream format is fixed at 44100 Hz / 16-bit / stereo. The
-receiver converts 8/16/24/32-bit and float samples to 16-bit stereo and
-resamples any input rate to 44100 (for example when VoiceMeeter's engine runs
-at 48000 Hz). Linear interpolation is used; 44100 Hz input passes through
-unchanged.
+The receiver converts 8/16/24/32-bit and float samples to 16-bit stereo. Its
+output rate is passed by the plugin as `--target-rate=$SAMPLERATE$`, i.e. the
+rate Lyrion announces to the player, so the two can never disagree. Other input
+rates are resampled to that rate with linear interpolation; a matching input
+rate passes through unchanged. With VoiceMeeter, set the **VBAN outgoing
+stream** sample rate equal to the **engine** rate (48000 with 48000, 44100 with
+44100) so VoiceMeeter does not resample.
 
 ## Quick start
 
@@ -111,11 +113,31 @@ Also apply the firewall rule above if you have not done so yet.
 2. Under **Outgoing Streams** pick the bus you want to stream (A1…A5, B1…B3).
 3. Set:
    - **IP address**: the IP of the Lyrion server (for example `192.168.178.30`)
-   - **Sample rate**: `44100`
+   - **Sample rate**: the **same value as the VoiceMeeter engine** (menu →
+     System Settings → Sample Rate). With the engine at 48000 Hz choose `48000`;
+     with 44100 Hz choose `44100`. If the two differ, VoiceMeeter resamples the
+     stream, which causes drift and wobble.
    - **Channels**: `2`
    - **Format**: `PCM 16 bits`
    - **Stream name**: `Stream1` (or any name, must match the URL)
 4. Switch the stream **On**, and switch **VBAN On** (top left).
+
+### Make the source match the engine rate
+
+VoiceMeeter's ASIO driver runs at the **engine** sample rate. The player that
+feeds VoiceMeeter must output that same rate, otherwise VoiceMeeter converts it
+internally and the audio can come out too fast and too high (typically ~8.8%,
+i.e. 48000 vs 44100).
+
+- **MediaMonkey 5**: Tools → Options → Output Plug-ins → *ASIO output* →
+  Configure → **Sample rate: 48000** (or "Resample to 48000") when the
+  VoiceMeeter engine runs at 48000. This is the setting that fixed the
+  "too fast / too high" playback in practice.
+- Any other player: set its output rate to the engine rate as well.
+
+The Lyrion side needs no configuration: the plugin passes the rate Lyrion
+announces to the player to the receiver (`--target-rate`), so the receiver and
+the player always agree.
 
 The IP address of the sending machine is shown at the top of the VBAN window;
 you need it for the playback URL.
@@ -217,7 +239,7 @@ Notes:
 | Player shows `play` but no audio; log shows `Buffering... 0 / 153600` and `Read to end of file or pipe` | A stale `vban_url_receptor.exe` still owns UDP 6980, so the new pipeline receiver cannot bind. End it with `Get-Process vban_url_receptor -ErrorAction SilentlyContinue \| Stop-Process -Force`, then play again. |
 | Plugin disappears after a Lyrion restart | Lyrion's extension manager removes plugins that are installed but not registered as enabled. Install through the repository, or make sure **VBAN** is enabled under **Settings → Plugins** before restarting. |
 | Plugin does not appear in the plugin list | `install.xml` must be at `C:\ProgramData\Lyrion\Cache\InstalledPlugins\Plugins\VBAN\install.xml`; restart Lyrion; check **Settings → Information** for plugin load errors. |
-| Audio plays too fast/slow or at the wrong pitch | The VBAN stream is not 44100 Hz. Set it to 44100 in VoiceMeeter. The receiver logs an error on stderr. |
+| Audio plays too fast/slow or at the wrong pitch | Check that the player feeding VoiceMeeter outputs the **engine** rate (see *Make the source match the engine rate* above); a mismatch there makes everything ~8.8% too fast and too high. If that is correct, the player is told a different rate than the receiver produces — usually an outdated `custom-convert.conf`; reinstall the plugin. |
 | Clicks or dropouts | Use a wired network, keep the VBAN stream on a single player, and check for packet loss (`gaps` in the receiver stats). |
 | Second player stays silent | Unicast: two pipelines cannot share UDP 6980. Use multicast (`vban://239.255.42.42/Stream1`) or a second stream on another port (`vban://<sender-ip>:6981/Stream2`). Synced players share one stream and are not affected. |
 | `vban_url_receptor.exe` blocked by SmartScreen | Run `Unblock-File` on the binary (see installation), or right-click the file → **Properties** → **Unblock**. |
@@ -291,8 +313,9 @@ same artifact on every push and attaches it to tagged releases.
 ## Limitations
 
 - **Windows only.** The Linux plugin from upstream still works on Linux.
-- **Sample rate**: Lyrion's `pcm` format is 44100 Hz. Other input rates are
-  resampled to 44100 (linear interpolation).
+- **Sample rate**: the receiver outputs the rate Lyrion announces to the player
+  (`--target-rate=$SAMPLERATE$`). Other input rates are resampled with linear
+  interpolation.
 - **Independent players need multicast or separate streams.** Synced players
   share one stream; with unicast, two pipelines cannot both bind UDP 6980.
 - The receiver is a live pass-through: it does not buffer ahead, so a very

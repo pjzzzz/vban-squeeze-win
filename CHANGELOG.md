@@ -1,8 +1,21 @@
 # Changelog
 
+## 1.7.0 - 2026-11-01
+
+- The receiver now writes PCM at the rate Lyrion announces to the player
+  (`--target-rate=$SAMPLERATE$` in `custom-convert.conf`) instead of a fixed
+  44100 Hz, so player and stream can never disagree.
+- Pin the track samplerate/channels/samplesize before the transcoder command is
+  tokenized, and force the 44100 Hz rate code for `vban://` streams, so the
+  rate sent to the player is deterministic.
+- New `--tee=FILE` option to copy the PCM output to a file for diagnostics.
+- README: VoiceMeeter's engine rate must equal the source player's ASIO rate
+  (MediaMonkey: resample to 48000). That mismatch, not the plugin, was the cause
+  of audio playing ~8.8% too fast and too high.
+
 ## 1.5.2 — 2026-11-01
 
-- Back to PCM-only output (ban pcm * *); the FLAC rule is removed. VoiceMeeter
+- Back to PCM-only output (`vban pcm * *`); the FLAC rule is removed. VoiceMeeter
   engine rate must be 44100 Hz.
 
 ## 1.5.1 — 2026-11-01
@@ -12,7 +25,7 @@
 
 ## 1.5.0 — 2026-11-01
 
-- Add a FLAC transcoder rule (ban flc * *) and let Lyrion prefer it for
+- Add a FLAC transcoder rule (vban flc * *) and let Lyrion prefer it for
   players that support FLAC. The sample rate travels inside the FLAC stream, so
   the player can no longer mis-negotiate the PCM rate and play too fast/slow.
 

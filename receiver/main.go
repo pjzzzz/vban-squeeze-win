@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -45,6 +46,8 @@ Options:
   -t, --seconds=N        stop after N seconds (testing)
       --stats            print a summary on stderr when stopping
       --title-file=FILE  write VBAN TEXT titles to FILE (default: temp/vban-<stream>.title)
+      --target-rate=N    output rate in Hz (default 44100; the plugin passes the player rate)
+      --tee=FILE         also write the PCM output to FILE (diagnostics)
   -l, --loglevel=0..4    log level: 0 fatal, 1 error, 2 info, 3 debug (default 2)
   -v, --version          print version
   -h, --help             print this help
@@ -58,6 +61,9 @@ var (
 	errHelp    = errors.New("help requested")
 	errVersion = errors.New("version requested")
 )
+
+// defaultTargetRate is used when --target-rate is not supplied.
+const defaultTargetRate = 44100
 
 type options struct {
 	url        string
@@ -74,10 +80,12 @@ type options struct {
 	stats      bool
 	logLevel   int
 	titleFile  string
+	targetRate int
+	tee        string
 }
 
 func parseArgs(args []string) (options, error) {
-	o := options{quality: 1, logLevel: levelInfo}
+	o := options{quality: 1, logLevel: levelInfo, targetRate: defaultTargetRate}
 	var positional []string
 
 	value := func(i *int, name, inline string, hasInline bool) (string, error) {
@@ -180,6 +188,34 @@ func parseArgs(args []string) (options, error) {
 			o.seconds = f
 		case "--stats":
 			o.stats = true
+		case "--target-rate":
+			v, err := value(&i, name, inline, hasInline)
+			if err != nil {
+				return o, err
+			}
+			// An empty value means the placeholder was not substituted by
+			// Lyrion; keep the default but make it visible in the log.
+			if v == "" {
+				fmt.Fprintf(os.Stderr, "warning: --target-rate was empty (the plugin did not pass a rate); using %d Hz. Reinstall the plugin if audio is too fast or slow.\n", defaultTargetRate)
+				break
+			}
+			// Digits only: no sign, no spaces, no shell metacharacters.
+			for _, c := range v {
+				if c < '0' || c > '9' {
+					return o, fmt.Errorf("invalid target rate %q (digits only)", v)
+				}
+			}
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 8000 || n > 192000 {
+				return o, fmt.Errorf("invalid target rate %q (expected a number between 8000 and 192000)", v)
+			}
+			o.targetRate = n
+		case "--tee":
+			v, err := value(&i, name, inline, hasInline)
+			if err != nil {
+				return o, err
+			}
+			o.tee = v
 		case "--title-file":
 			v, err := value(&i, name, inline, hasInline)
 			if err != nil {
@@ -238,6 +274,22 @@ func parseArgs(args []string) (options, error) {
 	return o, nil
 }
 
+// teeWriter copies PCM to the diagnostic file and disables itself on the first
+// write error, so a full disk or a slow share can never break the audio stream.
+type teeWriter struct {
+	w      io.Writer
+	failed bool
+}
+
+func (t *teeWriter) Write(p []byte) (int, error) {
+	if !t.failed {
+		if _, err := t.w.Write(p); err != nil {
+			t.failed = true
+		}
+	}
+	return len(p), nil
+}
+
 func main() {
 	opts, err := parseArgs(os.Args[1:])
 
@@ -278,6 +330,23 @@ func main() {
 		out = f
 	}
 
+	if opts.tee != "" {
+		f, err := os.Create(opts.tee)
+		if err != nil {
+			log.error("cannot create %s: %v", opts.tee, err)
+		} else {
+			// Buffer the diagnostic copy so a slow disk cannot stall audio, and
+			// swallow write errors: a diagnostic must never break the stream.
+			bw := bufio.NewWriterSize(f, 1<<20)
+			defer func() {
+				_ = bw.Flush()
+				_ = f.Close()
+			}()
+			out = io.MultiWriter(out, &teeWriter{w: bw})
+			log.info("teeing PCM output to %s", opts.tee)
+		}
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -312,11 +381,12 @@ type stats struct {
 	bitLabel     string
 	channels     int
 	inRate       float64
+	targetRate   int
 	consumerGone bool
 }
 
 func receive(ctx context.Context, stream streamURL, opts options, out io.Writer, log *logger) (stats, error) {
-	st := stats{start: time.Now()}
+	st := stats{start: time.Now(), targetRate: opts.targetRate}
 
 	conn, err := listenWithRetry(ctx, stream, opts, log)
 	if err != nil {
@@ -338,7 +408,7 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 	// with silence so Lyrion and the player do not mark the stream as failed;
 	// real audio resumes as soon as packets arrive again.
 	const silenceInterval = 100 * time.Millisecond
-	silence := make([]byte, 44100*4*int(silenceInterval/time.Millisecond)/1000)
+	silence := make([]byte, opts.targetRate*4*int(silenceInterval/time.Millisecond)/1000)
 	lastWrite := time.Now()
 
 	titlePath := opts.titleFile
@@ -357,6 +427,7 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 	lastPacket := time.Now()
 	var measureFrames int64
 	firstPacket := true
+	var firstPacketAt time.Time
 
 	aw := newAsyncWriter(out)
 	defer aw.close()
@@ -470,14 +541,15 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 
 		if firstPacket {
 			firstPacket = false
-			if pkt.SampleRate != 44100 {
-				res.setRatio(float64(pkt.SampleRate) / 44100.0)
+			firstPacketAt = time.Now()
+			if pkt.SampleRate != opts.targetRate {
+				res.setRatio(float64(pkt.SampleRate) / float64(opts.targetRate))
 			}
 		}
 
-		if pkt.SampleRate != 44100 && !warnedRate {
+		if pkt.SampleRate != opts.targetRate && !warnedRate {
 			warnedRate = true
-			log.info("stream sample rate is %d Hz; resampling to 44100 Hz for Lyrion", pkt.SampleRate)
+			log.info("stream sample rate is %d Hz; resampling to %d Hz for Lyrion", pkt.SampleRate, opts.targetRate)
 		}
 
 		if pkt.Channels > 2 && !warnedChannels {
@@ -515,21 +587,31 @@ func receive(ctx context.Context, stream streamURL, opts options, out io.Writer,
 		if elapsed := time.Since(measureStart); elapsed >= time.Second {
 			rate := float64(measureFrames) / elapsed.Seconds()
 			st.inRate = rate
-			expected := res.ratioValue() * 44100.0
-			if expected > 0 && math.Abs(rate-expected)/expected > 0.05 {
-				ratio := rate / 44100.0
-				smoothed := res.ratioValue()*0.8 + ratio*0.2
-				if math.Abs(smoothed-1) < 0.005 {
-					smoothed = 1
+
+			// The header rate is the stable reference. Ignore the first
+			// seconds: Lyrion buffers the start of the stream, which skews the
+			// measurement. Correct only when the measured rate stays clearly
+			// away from the header, and set the ratio directly from the
+			// measurement -- correcting relative to the current ratio made a
+			// single bad window drift off permanently (audio played too fast).
+			header := float64(pkt.SampleRate)
+			if header > 0 && rate > 0 && rate < 4*float64(opts.targetRate) && !firstPacketAt.IsZero() && time.Since(firstPacketAt) > 5*time.Second {
+				if math.Abs(rate-header)/header > 0.05 {
+					ratio := rate / float64(opts.targetRate)
+					if math.Abs(ratio-1) < 0.005 {
+						ratio = 1
+					}
+					if math.Abs(ratio-res.ratioValue()) > 0.001 {
+						res.setRatio(ratio)
+						log.info("measured %.0f Hz differs from the VBAN header (%.0f Hz); resample ratio set to %.4f", rate, header, res.ratioValue())
+					}
 				}
-				res.setRatio(smoothed)
-				log.info("measured %.0f Hz differs from the VBAN header; adjusting resample ratio to %.4f", rate, res.ratioValue())
 			}
 			measureFrames = 0
 			measureStart = time.Now()
 
 			if statsPath := statsFilePath(stream.Stream); statsPath != "" {
-				_ = os.WriteFile(statsPath, []byte(fmt.Sprintf("inputRate=%.1f\nratio=%.4f\ndatagrams=%d\nframes=%d\nduration=%.2f\n", rate, res.ratioValue(), st.datagrams, st.frames, time.Since(st.start).Seconds())), 0644)
+				_ = os.WriteFile(statsPath, []byte(fmt.Sprintf("inputRate=%.1f\nratio=%.4f\ntargetRate=%d\nheaderRate=%d\ndatagrams=%d\nframes=%d\nduration=%.2f\n", rate, res.ratioValue(), opts.targetRate, st.sampleRate, st.datagrams, st.frames, time.Since(st.start).Seconds())), 0644)
 			}
 		}
 
@@ -697,13 +779,13 @@ func printStats(w io.Writer, st stats) {
 	fmt.Fprintf(w, "payload in  : %d bytes\n", st.bytesIn)
 	fmt.Fprintf(w, "pcm out     : %d bytes\n", st.bytesOut)
 	fmt.Fprintf(w, "silence out : %d bytes\n", st.silence)
-	fmt.Fprintf(w, "frames      : %d (%.2f s at 44100 Hz)\n", st.frames, float64(st.frames)/44100)
+	fmt.Fprintf(w, "frames      : %d (%.2f s at %d Hz)\n", st.frames, float64(st.frames)/float64(st.targetRate), st.targetRate)
 	fmt.Fprintf(w, "peak        : %d (%.1f%%)\n", st.peak, peakPercent)
 	if st.sampleRate != 0 {
 		fmt.Fprintf(w, "format      : %d Hz / %s / %d ch\n", st.sampleRate, st.bitLabel, st.channels)
 	}
 	if st.inRate > 0 {
-		fmt.Fprintf(w, "input rate  : %.1f Hz (resampled to 44100)\n", st.inRate)
+		fmt.Fprintf(w, "input rate  : %.1f Hz (resampled to %d)\n", st.inRate, st.targetRate)
 	}
 	if st.consumerGone {
 		fmt.Fprintln(w, "note        : output closed by consumer")
