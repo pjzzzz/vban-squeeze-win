@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.2 — 2026-11-01
+
+- Back to PCM-only output (ban pcm * *); the FLAC rule is removed. VoiceMeeter
+  engine rate must be 44100 Hz.
+
 ## 1.5.1 — 2026-11-01
 
 - FLAC rule: pass raw-PCM flags to flac and declare capability T; document
