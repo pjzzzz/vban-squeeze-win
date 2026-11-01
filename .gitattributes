@@ -1,0 +1,4 @@
+# Keep plugin text files LF: Lyrion's transcoder/plugin files on Windows are LF
+# and CRLF can corrupt the custom-convert.conf command lines.
+* text=auto eol=lf
+*.png binary
