@@ -20,7 +20,6 @@ use Slim::Player::TranscodingHelper;
 use Slim::Utils::Log;
 use Slim::Utils::Misc;
 use Slim::Utils::Prefs;
-use Slim::Utils::Scanner::Remote;
 use Slim::Utils::Strings qw(string);
 
 Slim::Player::ProtocolHandlers->registerHandler('vban', __PACKAGE__);
@@ -32,6 +31,12 @@ sub isRemote { 1 }
 
 # Live stream: keep the pipeline buffer small so playback starts quickly.
 sub bufferThreshold { 150 }
+
+sub _valid_url {
+	my ($class, $url) = @_;
+
+	return $url =~ m{\Avban://[A-Za-z0-9.\-]{1,253}(?::\d{1,5})?(?:/[A-Za-z0-9._~%\-]{0,16})?\z}i;
+}
 
 sub new {
 	my $class = shift;
@@ -47,7 +52,7 @@ sub new {
 	# Defence in depth: this URL ends up in a transcoder command line that
 	# Lyrion hands to socketwrapper/cmd.exe. Refuse anything that could act as
 	# a shell metacharacter instead of relying on quoting.
-	unless ($url =~ m{\Avban://[A-Za-z0-9.\-]{1,253}(?::\d{1,5})?(?:/[A-Za-z0-9._~%\-]{0,16})?\z}i) {
+	unless ($class->_valid_url($url)) {
 		$log->error("refusing invalid VBAN URL: $url");
 		return;
 	}
@@ -99,7 +104,31 @@ sub isAudioURL { 1 }
 sub scanUrl {
 	my ($class, $url, $args) = @_;
 
-	Slim::Utils::Scanner::Remote->scanURL($url, $args);
+	my $song  = $args->{'song'};
+	my $track = $song ? $song->track : undef;
+	my $cb    = $args->{'cb'} || sub {};
+
+	unless ($class->_valid_url($url)) {
+		$log->error("refusing invalid VBAN URL: $url");
+		$cb->(undef, 'SCANNER_REMOTE_INVALID_URL');
+		return;
+	}
+
+	unless ($track) {
+		$cb->(undef, 'SCANNER_REMOTE_NO_URL_PROVIDED');
+		return;
+	}
+
+	# Make sure the content type is known before Song::open negotiates the
+	# transcoder, even for a URL that was never played before.
+	Slim::Music::Info::setContentType($url, 'vban');
+
+	# A VBAN stream is live audio, never a playlist: no HTTP scan needed. Going
+	# through Slim::Utils::Scanner::Remote would try to fetch vban:// over HTTP
+	# and never call back, leaving the player in "waitingToPlay".
+	$log->debug("scanUrl: $url is a live VBAN stream");
+
+	$cb->($track, undef);
 }
 
 sub canDirectStream {

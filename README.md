@@ -46,7 +46,43 @@ cannot change the sample rate. Set the VBAN outgoing stream to **44100 Hz**.
 
 ## Installation
 
-### Manual installation
+The repository install is the recommended route: Lyrion then registers the
+plugin as installed, enables it, and can update it later. Use the manual route
+only when you cannot add a repository (for example while testing a private
+build).
+
+### Installation through the plugin repository (recommended)
+
+Add this URL under **Settings → Plugins → Additional Repositories**:
+
+```
+https://raw.githubusercontent.com/pjzzzz/vban-squeeze-win/main/vban.xml
+```
+
+Then install **VBAN** from the plugin list and restart Lyrion.
+
+The repository XML intentionally omits the `sha` field: the zip is fetched from
+GitHub Releases over HTTPS, and a hash pinned in the repository would go stale
+as soon as a new binary is built.
+
+### Firewall (both install routes)
+
+Allow inbound VBAN traffic (UDP 6980) in Windows Firewall:
+
+```powershell
+New-NetFirewallRule -DisplayName 'VBAN receptor (UDP 6980)' `
+    -Direction Inbound -Protocol UDP -LocalPort 6980 `
+    -Action Allow -Profile Any
+```
+
+`-Profile Any` also covers the Public profile; if you prefer to restrict it,
+use `-Profile Private,Domain` and make sure the server's network is not
+classified as Public. For extra hardening, limit the rule to the sending
+machine: add `-RemoteAddress 192.168.178.79`.
+
+Without this rule the receiver starts, but no packets ever arrive.
+
+### Manual installation (fallback)
 
 1. Download `vban-<version>.zip` from the
    [Releases](https://github.com/pjzzzz/vban-squeeze-win/releases) page.
@@ -62,37 +98,10 @@ cannot change the sample rate. Set the VBAN outgoing stream to **44100 Hz**.
    Unblock-File 'C:\ProgramData\Lyrion\Cache\InstalledPlugins\Plugins\VBAN\Bin\MSWin32-x64-multi-thread\vban_url_receptor.exe'
    ```
 
-5. Allow inbound VBAN traffic (UDP 6980) in Windows Firewall:
+5. Start Lyrion Music Server.
+6. Open **Settings → Plugins** and confirm that **VBAN** is enabled.
 
-   ```powershell
-   New-NetFirewallRule -DisplayName 'VBAN receptor (UDP 6980)' `
-       -Direction Inbound -Protocol UDP -LocalPort 6980 `
-       -Action Allow -Profile Any
-   ```
-
-   `-Profile Any` also covers the Public profile; if you prefer to restrict it,
-   use `-Profile Private,Domain` and make sure the server's network is not
-   classified as Public. For extra hardening, limit the rule to the sending
-   machine: add `-RemoteAddress 192.168.178.79`.
-
-   Without this rule the receiver starts, but no packets ever arrive.
-
-6. Start Lyrion Music Server.
-7. Open **Settings → Plugins** and confirm that **VBAN** is enabled.
-
-### Installation through the plugin repository
-
-Add this URL under **Settings → Plugins → Additional Repositories**:
-
-```
-https://raw.githubusercontent.com/pjzzzz/vban-squeeze-win/main/vban.xml
-```
-
-Then install **VBAN** from the plugin list and restart Lyrion.
-
-The repository XML intentionally omits the `sha` field: the zip is fetched from
-GitHub Releases over HTTPS, and a hash pinned in the repository would go stale
-as soon as a new binary is built.
+Also apply the firewall rule above if you have not done so yet.
 
 ## VoiceMeeter setup
 
@@ -128,6 +137,8 @@ Defaults are `127.0.0.1`, port `6980` and stream `Stream1`.
 | Symptom | Cause / fix |
 |---------|-------------|
 | Silence, `server.log` shows a pipeline error | Check the firewall rule (inbound UDP 6980) and that VoiceMeeter's stream is **On**. |
+| Player shows `play` but no audio; log shows `Buffering... 0 / 153600` and `Read to end of file or pipe` | A stale `vban_url_receptor.exe` still owns UDP 6980, so the new pipeline receiver cannot bind. End it with `Get-Process vban_url_receptor -ErrorAction SilentlyContinue \| Stop-Process -Force`, then play again. |
+| Plugin disappears after a Lyrion restart | Lyrion's extension manager removes plugins that are installed but not registered as enabled. Install through the repository, or make sure **VBAN** is enabled under **Settings → Plugins** before restarting. |
 | Plugin does not appear in the plugin list | `install.xml` must be at `C:\ProgramData\Lyrion\Cache\InstalledPlugins\Plugins\VBAN\install.xml`; restart Lyrion; check **Settings → Information** for plugin load errors. |
 | Audio plays too fast/slow or at the wrong pitch | The VBAN stream is not 44100 Hz. Set it to 44100 in VoiceMeeter. The receiver logs an error on stderr. |
 | Clicks or dropouts | Use a wired network, keep the VBAN stream on a single player, and check for packet loss (`gaps` in the receiver stats). |
@@ -174,7 +185,7 @@ interfaces to receive the sender's packets. Mitigations:
 - Releases include a `SHA256SUMS.txt`; verify the zip before installing:
 
   ```powershell
-  Get-FileHash .\vban-1.0.0.zip -Algorithm SHA256
+  Get-FileHash .\vban-1.0.1.zip -Algorithm SHA256
   ```
 
 ## Building from source
@@ -191,10 +202,10 @@ go vet ./...
 go build -trimpath -ldflags "-s -w" `
     -o plugin/VBAN/Bin/MSWin32-x64-multi-thread/vban_url_receptor.exe ./receiver
 
-.\tools\make-zip.ps1 -Version 1.0.0
+.\tools\make-zip.ps1 -Version 1.0.1
 ```
 
-The plugin zip is written to `dist\vban-1.0.0.zip`. GitHub Actions builds the
+The plugin zip is written to `dist\vban-1.0.1.zip`. GitHub Actions builds the
 same artifact on every push and attaches it to tagged releases.
 
 ## Limitations

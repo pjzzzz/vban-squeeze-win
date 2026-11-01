@@ -3,7 +3,7 @@
 <extension>
 	<name>PLUGIN_VBAN</name>
 	<module>Plugins::VBAN::Plugin</module>
-	<version>1.0.0</version>
+	<version>1.0.1</version>
 	<description>PLUGIN_VBAN_DESC</description>
 	<creator>pjzzzz (Windows port), original by Markus Buschhoff</creator>
 	<defaultState>enabled</defaultState>

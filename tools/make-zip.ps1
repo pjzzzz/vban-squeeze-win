@@ -8,11 +8,11 @@
     is what Lyrion expects.
 
 .EXAMPLE
-    .\tools\make-zip.ps1 -Version 1.0.0
+    .\tools\make-zip.ps1 -Version 1.0.1
 #>
 [CmdletBinding()]
 param(
-    [string]$Version = '1.0.0',
+    [string]$Version = '1.0.1',
     [string]$Exe = '',
     [string]$OutputDir = ''
 )
@@ -40,6 +40,9 @@ if (Test-Path $stage) {
 New-Item -ItemType Directory -Force -Path $target | Out-Null
 
 Copy-Item -Path (Join-Path $root 'plugin\VBAN\*') -Destination $target -Recurse -Force
+
+# .gitkeep only exists to keep the Bin directory in git; never ship it.
+Get-ChildItem -Path $target -Recurse -Filter '.gitkeep' -File | Remove-Item -Force
 
 $binDir = Join-Path $target 'Bin\MSWin32-x64-multi-thread'
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
